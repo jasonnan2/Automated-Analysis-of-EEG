@@ -1,19 +1,28 @@
 classdef ERPanalysis
     properties
         groups;
+        groupNames;
+        freq_list;
         variables;
         baselineIDX;
+        timeAxis;
     end
     methods
-        function obj = ERPanalysis(groupPaths,variables,baselineIDX)
+        function obj = ERPanalysis(groupPaths,variables,baselineTime)
             disp('Initializing object')
             % groupPaths is a cell array of file paths
             % Initializing the properties to the object
+            
             for i = 1:length(groupPaths)
                 obj.groups{i} = load(groupPaths{i});
             end
             obj.variables=variables;
+            obj.timeAxis=obj.groups{1}.timeAxis;
+            [~,baselineIDX]=min(abs(baselineTime'-obj.timeAxis)');
             obj.baselineIDX=baselineIDX;
+            obj.groupNames=cellfun(@(x) x.groupname, obj.groups,'uniformoutput',false);
+            obj.freq_list=obj.groups{1}.freq_list;
+            
         end
         function obj = cleanDatasets(obj)
             disp('Removing missing data')
@@ -54,6 +63,7 @@ classdef ERPanalysis
                 disp('---------------------------------')
             end
         end
+       
     end
 end
 
@@ -89,3 +99,41 @@ function group = cleanDataset(group)
     group.GLbias(:,:,:,missingidx) = [];
     group.subjectcoll(missingidx) = [];
 end
+
+%% Plotting scalpmap with significant electrodes
+function plotSigTopo(s1,s2,chanlocs,key)
+    % s1 and s2 are chan x sub size
+    
+    plotdata=nanmean(s2,2)-nanmean(s1,2);
+    
+    new_chan=topoSignificance(s1,s2,chanlocs,{'.','+'});
+    topoplot(plotdata,new_chan,'headrad','rim','electrodes','labels'); 
+    colorbar(); 
+    caxis([min(plotdata),max(plotdata)])
+end
+
+%% Function to calculate which electrodes are significant btw two groups
+function chanlocs=topoSignificance(s1,s2,chanlocs,key)
+
+    % pre and post are data matrices size N subjects x C channels
+    % key is a two element cell array with markers for non-sig and sig
+    % new_chan is the chan_locs
+    % Perform t-tests
+    
+    s1=squeeze(s1);
+    s2=squeeze(s2);
+    for chan = 1:length(chanlocs)
+        % Get non-NaN indices
+        [~,p(chan)] = ttest2(s1(chan,:), s2(chan,:));
+        if isnan(p(chan))
+            disp('asdfawrsasdbaweasbas')
+            waitforbuttonpress
+        end
+        
+    end
+    %[~,p]=fdr(reshape(p,[1,numel(p)]),0.05);
+    mask=key((p<0.05)+1);
+    [chanlocs.labels]=mask{:};
+end
+        
+    
