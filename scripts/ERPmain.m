@@ -13,7 +13,7 @@ load(dataPath)
 variables = {'EVgain', 'EVloss', 'GLbias'};
 baselineTime=[-250 -50];
 
-analysis = ERPanalysis_struct(CLIMATELD); % set up the class, need filepath of group data, variables to run and baseline correction range
+analysis = ERPanalysis(CLIMATELD); % set up the class, need filepath of group data, variables to run and baseline correction range
 analysis = analysis.cleanDatasets(); % remove any missing subjects
 analysis = analysis.standardPipeline(baselineTime); % standard processing pipeline, 5SD outlier, baseline correction
 
