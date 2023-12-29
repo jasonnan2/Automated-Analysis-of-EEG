@@ -99,7 +99,6 @@ function group = cleanDataset(group)
     group.EVgain(:,:,:,missingidx) = [];
     group.EVloss(:,:,:,missingidx) = [];
     group.GLbias(:,:,:,missingidx) = [];
-    group.removedsubs=group.subjectcoll(missingidx);
     group.subjectcoll(missingidx) = [];
 end
 

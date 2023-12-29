@@ -10,6 +10,8 @@ load('chanlocs_file.mat') % chanlocs_str
 %% Main Analysis with Class
 % Create an object of the class
 timeAxis=-500:4:1496;
+dataPath='A:/ClimateLD/analysis_results/ClimateLD_allgroups.mat';
+load(dataPath)
 
 groupPaths = {'A:/ClimateLD/analysis_results/climateLDcontrol_amp_rmv.mat', 'A:/ClimateLD/analysis_results/climateLDwitnessed_amp_rmv.mat','A:/ClimateLD/analysis_results/climateLDhappenedto_amp_rmv.mat'};
 variables = {'EVgain', 'EVloss', 'GLbias'};
