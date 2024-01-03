@@ -9,22 +9,33 @@ classdef ERPanalysis
     
     methods
         
-        function obj = ERPanalysis(myStruct)
+        function obj = ERPanalysis(myStruct,baselineTime, timeRange)
+            % obj           | formatted data structure with properties of DATA
+            % baseline time | vector with start and end time of baseline in mS 
             disp('Initializing object')
-            % obj is the formatted data structure with properties of DATA
+            
             % and info
             % Initializing the properties to the object
             %-------------------------------------------------------------------%
             
             obj.scalpData=myStruct.scalpData;
-            
             if isfield(myStruct,'sourceData')
                 obj.sourceData=myStruct.sourceData;
             end
             obj.info=myStruct.info;
-            
-            %obj.analysisResults=struct;
-            
+            [~,baselineIDX]=min(abs(baselineTime'-obj.info.timeAxis)');
+            obj.info.baselineIDX=baselineIDX;
+            obj.info.timeRange = timeRange;
+            timeNames = fieldnames(obj.info.timeRange);
+            for t = 1:length(timeNames)
+                [startIdx, endIdx] = obj.getTimeIndices(timeRange, timeNames{t});
+                obj.info.timeIDX.(timeNames{t}) = [startIdx endIdx];
+            end
+        end
+        
+        function [startIdx, endIdx] = getTimeIndices(obj, timeRange, timeName)
+            [~, startIdx] = min(abs(obj.info.timeAxis - timeRange.(timeName)(1)));
+            [~, endIdx] = min(abs(obj.info.timeAxis - timeRange.(timeName)(2)));
         end
         
         function obj = cleanDatasets(obj,runType)
@@ -54,10 +65,7 @@ classdef ERPanalysis
         end
         
 
-        function obj = standardPipeline(obj,baselineTime,runType)
-            % baseline time | vector with start and end time of baseline in mS 
-            [~,baselineIDX]=min(abs(baselineTime'-obj.info.timeAxis)');
-            obj.info.baselineIDX=baselineIDX;
+        function obj = standardPipeline(obj,runType)
             properties = obj.info.variables;
             disp('---------------------------------')
             for j = 1:length(properties)
@@ -90,9 +98,9 @@ classdef ERPanalysis
             end
         end
         
-        function obj=plotScalpmap(obj,timeRange,properties)
-            obj.info.timeRange=timeRange;
-            timeNames = fieldnames(timeRange);
+        function obj=plotScalpmap(obj,properties)
+            
+            timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.scalpData));
             combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
 
@@ -108,16 +116,14 @@ classdef ERPanalysis
                     figure
                     figCount=0;
                     for t=1:length(timeNames)
-                        [~, startIdx] = min(abs(obj.info.timeAxis - timeRange.(timeNames{t})(1)));
-                        [~, endIdx] = min(abs(obj.info.timeAxis - timeRange.(timeNames{t})(2)));
-                        
-                        obj.info.timeIDX.(timeNames{t})=[startIdx endIdx];
+
+                        timeIdx = obj.info.timeIDX.(timeNames{t});
          
                         for f=1:length(obj.info.freq_list)
                             figCount = figCount + 1;
                             subplot(3,4,figCount)
-                            s1=squeeze(nanmean(group1(f,:,startIdx:endIdx,:),3)); % get to chan x sub of first subject
-                            s2=squeeze(nanmean(group2(f,:,startIdx:endIdx,:),3)); % get to chan x sub of second subject
+                            s1=squeeze(nanmean(group1(f,:,timeIdx(1):timeIdx(2),:),3)); % get to chan x sub of first subject
+                            s2=squeeze(nanmean(group2(f,:,timeIdx(1):timeIdx(2),:),3)); % get to chan x sub of second subject
                             
                             pvals=topoSignificance(s1,s2); % get 1x n channel of p values 
                             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
@@ -219,8 +225,7 @@ classdef ERPanalysis
                 end
             end
         end
-        function plotNetwork(obj,netwrk,timeRange,properties)
-            obj.info.timeRange=timeRange;
+        function plotNetwork(obj,netwrk,properties)
             timeNames = fieldnames(obj.info.timeRange);
             N = length(obj.info.groupNames);
             combinations = nchoosek(1:N,2);
@@ -230,9 +235,6 @@ classdef ERPanalysis
                 count=0;
                 for t=1:length(timeNames)
                     time=timeNames{t};
-                    [~, startIdx] = min(abs(obj.info.timeAxis - timeRange.(time)(1)));
-                    [~, endIdx] = min(abs(obj.info.timeAxis - timeRange.(time)(2)));
-                    obj.info.timeIDX.(time)=[startIdx endIdx];
                     timeIdx = obj.info.timeIDX.(time);
                     for f = 1:length(obj.info.freq_list)
                         % Generating plot data
@@ -241,10 +243,9 @@ classdef ERPanalysis
                             for i=1:length(netwrk)
                                 subdata = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{n}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
                                 data(i,n) = nanmean(subdata,'all');
-                                sem(i,n) = std(subdata)/sqrt(length(subdata)); % Standard error of mean across N=51 subjects
+                                sem(i,n) = std(subdata)/sqrt(length(subdata));
                             end
                         end
-
                         count=count+1;
                         subplot(length(timeNames),length(obj.info.freq_list),count)
                         b=bar(data,'grouped'); hold on
@@ -252,24 +253,18 @@ classdef ERPanalysis
                         [ngroups, nbars] = size(data);
                         % Calculate the width for each bar group
                         groupwidth = min(0.8, nbars/(nbars + 1.5));
-                        % Set the position of each error bar in the centre of the main bar
-                        % Based on barweb.m by Bolu Ajiboye from MATLAB File Exchange
                         for i = 1:nbars
                             % Calculate center of each bar
                             x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
                             errorbar(x, data(:,i), sem(:,i), 'k', 'linestyle', 'none');
                         end
-
                         for comb = 1:size(combinations, 1)
                             firstSub=combinations(comb, 1);
                             secondSub=combinations(comb, 2);
-
                             for i=1:length(netwrk)
                                 group1 = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{firstSub}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
                                 group2 = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{secondSub}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
-
                                 [~,pvals(comb,i)] = ttest2(group1, group2);
-
                             end
                             group1Location = (1:ngroups) - groupwidth/2 + (2*firstSub-1) * groupwidth / (2*nbars);
                             group2Location = (1:ngroups) - groupwidth/2 + (2*secondSub-1) * groupwidth / (2*nbars);
@@ -277,7 +272,6 @@ classdef ERPanalysis
                             groupingKey = mat2cell(A, ones(1, size(A, 1)), size(A, 2));
                             sigstar(groupingKey,pvals(comb,:))
                         end
-
                         set(gca,'xticklabel',{netwrk.name},'fontweight','bold','fontsize',12,'Xticklabelrotation',90)%This line should replace the numbers with your categorical label%errorbar(CVmall,CVsemall);
                         if t==1
                             title(obj.info.freq_list{f})
@@ -285,7 +279,6 @@ classdef ERPanalysis
                         if f==1
                            ylabel(timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
                         end
-
                      end
                 end
                 Lgnd = legend(obj.info.groupNames);
@@ -293,9 +286,7 @@ classdef ERPanalysis
                 Lgnd.Position(2) = 0.9;
                 sgtitle(property)
             end
-            end
-
-        
+        end
     end
 end
 %%

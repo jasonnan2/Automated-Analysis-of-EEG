@@ -12,30 +12,31 @@ dataPath='A:/ClimateLD/analysis_results/ClimateLD_allgroups_amp_rmv.mat';
 load(dataPath)
 % Defining time in mS for baseline correction
 baselineTime=[-250 -50];
-% set up the class for Scalp analysis, needs the data structure
-analysis = ERPanalysis(CLIMATELD);
-% remove any missing subjects if any from Scalp data
-analysis = analysis.cleanDatasets('scalpData'); 
-% standard processing pipeline, 5SD outlier, baseline correction
-analysis = analysis.standardPipeline(baselineTime,'scalpData'); 
-% repeat for sourceData
-analysis = analysis.cleanDatasets('sourceData'); 
-analysis = analysis.standardPipeline(baselineTime,'sourceData'); 
-%% Plotting scalp maps and ERP
-
 % Defining time ranges of interest
 timeRange.choice=[0 500];
 timeRange.imReward=[500 1000];
 timeRange.cumReward=[1000 1500];
+
+% set up the class for Scalp analysis, needs the data structure
+analysis = ERPanalysis(CLIMATELD,baselineTime,timeRange);
+% remove any missing subjects if any from Scalp data
+analysis = analysis.cleanDatasets('scalpData'); 
+% standard processing pipeline, 5SD outlier, baseline correction
+analysis = analysis.standardPipeline('scalpData'); 
+% repeat for sourceData
+analysis = analysis.cleanDatasets('sourceData'); 
+analysis = analysis.standardPipeline('sourceData'); 
+%% Plotting scalp maps and ERP
+
 % Plotting scalp topo plots for variables in vars2plot and each timeRange
 % speficied
 vars2plot={'EVgain'};
-analysis = analysis.plotScalpmap(timeRange,vars2plot);
+analysis = analysis.plotScalpmap(vars2plot);
 % Plotting significant channels from topo plots as line plots with all
 % groups overlayed. Only selecting conditions which are in the specified
 % vectors for var, frequency, and time ranges. 
 vars2plot={'EVgain'};
-freq2plot={'broadband'};
+freq2plot={'alpha'};
 times2plot={'choice','imReward','cumReward'};
 analysis.plotERPs(vars2plot,freq2plot,times2plot)
 
@@ -68,7 +69,7 @@ netwrk(7).roi=sm;
 netwrk(8).name='VAN';
 netwrk(8).roi=van;
 
-analysis.plotNetwork(netwrk,timeRange,vars2plot)
+analysis.plotNetwork(netwrk,vars2plot)
 
 
 
