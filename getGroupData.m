@@ -13,7 +13,7 @@ function s = getGroupData(obj,group,property,freq,timeName,chans)
     timeIdx = obj.info.timeIDX.(timeName);
     
     if isempty(chans) || (ischar(chans) && strcmp(chans, 'all'))
-        chans = 1:size(obj.scalpData.(group).(property), 2); % assuming channels are the 2nd dimension
+        chans = 1:size(obj.sourceData.(group).(property), 2); % assuming channels are the 2nd dimension
     end
-    s = obj.scalpData.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
+    s = obj.sourceData.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
 end

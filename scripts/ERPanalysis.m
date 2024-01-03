@@ -6,7 +6,6 @@ classdef ERPanalysis
        analysisResults
     end
     
-    
     methods
         
         function obj = ERPanalysis(myStruct,baselineTime, timeRange)
@@ -42,7 +41,7 @@ classdef ERPanalysis
             disp('Removing missing data')
             % Getting rid of the nan's and missing subjects
             for i = 1:length(obj.info.groupNames)
-                obj.(runType).(obj.info.groupNames{i}) = cleanDataset(obj,obj.(runType).(obj.info.groupNames{i}));
+                obj.(runType).(obj.info.groupNames{i}) = obj.cleanDataset(obj.(runType).(obj.info.groupNames{i}));
             end
         end
         
@@ -71,10 +70,10 @@ classdef ERPanalysis
             for j = 1:length(properties)
                 property = properties{j};
                 disp("Processing "+property)
-                combined = combine_groups(obj,runType,property);
+                combined = obj.combine_groups(runType,property);
                 cleaned = rej5SD(combined);
                 baselineCorrected = baselineCorrection(cleaned,obj.info.baselineIDX);
-                obj = split_combined(obj, baselineCorrected,property,runType);
+                obj = obj.split_combined( baselineCorrected,property,runType);
                 disp('---------------------------------')
             end
         end
@@ -121,10 +120,10 @@ classdef ERPanalysis
                             figCount = figCount + 1;
                             subplot(3,4,figCount)
 
-                            s1 = squeeze(nanmean(getGroupData(obj,group1,property,freq,timeName),3));
-                            s2 = squeeze(nanmean(getGroupData(obj,group2,property,freq,timeName),3));
+                            s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
+                            s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
 
-                            pvals=topoSignificance(s1,s2); % get 1x n channel of p values 
+                            pvals=calGroupSig(s1,s2); % get 1x n channel of p values 
                             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
 
                             chans2add = chanlabels(pvals<0.05); % significant channels to add to list
@@ -153,7 +152,7 @@ classdef ERPanalysis
                             end
                         end
                     end
-                    sgtitle(property+" "+obj.info.groupNames(secondSub)+"-"+obj.info.groupNames(firstSub))
+                    sgtitle(property+" "+group2+"-"+group1)
                 end
             end
         end
@@ -233,14 +232,16 @@ classdef ERPanalysis
                 figure
                 count=0;
                 for t=1:length(timeNames)
-                    time=timeNames{t};
-                    timeIdx = obj.info.timeIDX.(time);
+                    timeName=timeNames{t};
+                    timeIdx = obj.info.timeIDX.(timeName);
                     for f = 1:length(obj.info.freq_list)
+                        freq=obj.info.freq_list{f};
                         % Generating plot data
                         data=[];sem=[];
                         for n=1:N
                             for i=1:length(netwrk)
-                                subdata = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{n}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
+
+                                subdata = squeeze(nanmean(nanmean(getGroupData(obj,obj.info.groupNames{n},property,freq,timeName,netwrk(i).roi),2),3));
                                 data(i,n) = nanmean(subdata,'all');
                                 sem(i,n) = std(subdata)/sqrt(length(subdata));
                             end
@@ -258,22 +259,26 @@ classdef ERPanalysis
                             errorbar(x, data(:,i), sem(:,i), 'k', 'linestyle', 'none');
                         end
                         for comb = 1:size(combinations, 1)
-                            firstSub=combinations(comb, 1);
-                            secondSub=combinations(comb, 2);
+                            group1=obj.info.groupNames{combinations(comb, 1)};
+                            group2=obj.info.groupNames{combinations(comb, 2)};
+                            s1=[];s2=[];
                             for i=1:length(netwrk)
-                                group1 = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{firstSub}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
-                                group2 = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{secondSub}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
-                                [~,pvals(comb,i)] = ttest2(group1, group2);
+                                % collapsing networks
+                                s1(i,:) = squeeze(nanmean(nanmean(getGroupData(obj,group1,property,freq,timeName,netwrk(i).roi),2),3));
+                                s2(i,:) = squeeze(nanmean(nanmean(getGroupData(obj,group2,property,freq,timeName,netwrk(i).roi),2),3));
                             end
-                            group1Location = (1:ngroups) - groupwidth/2 + (2*firstSub-1) * groupwidth / (2*nbars);
-                            group2Location = (1:ngroups) - groupwidth/2 + (2*secondSub-1) * groupwidth / (2*nbars);
+                            %[~,pvals(comb,:)] = ttest2(s1, s2);
+                            pvals(comb,:)=calGroupSig(s1,s2);
+
+                            group1Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 1)-1) * groupwidth / (2*nbars);
+                            group2Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 2)-1) * groupwidth / (2*nbars);
                             A=[group1Location;group2Location]';
                             groupingKey = mat2cell(A, ones(1, size(A, 1)), size(A, 2));
                             sigstar(groupingKey,pvals(comb,:))
                         end
                         set(gca,'xticklabel',{netwrk.name},'fontweight','bold','fontsize',12,'Xticklabelrotation',90)%This line should replace the numbers with your categorical label%errorbar(CVmall,CVsemall);
                         if t==1
-                            title(obj.info.freq_list{f})
+                            title(freq)
                         end
                         if f==1
                            ylabel(timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
@@ -285,27 +290,28 @@ classdef ERPanalysis
                 Lgnd.Position(2) = 0.9;
                 sgtitle(property)
             end
+
         end
         
-        function s = getGroupData(obj,group,property,freq,timeName,chans)
-            % group | name of the group
-            % property | string of variable
-            % freq | string of frequency band
-            % chans | vector of chans to include, if 'all' or empty indicates use all channels
-            % timeName | string of timeName
-
-            if nargin < 6
-                chans = 'all';
-            end
-
-            freqIdx = find(strcmp(obj.info.freq_list, freq));
-            timeIdx = obj.info.timeIDX.(timeName);
-
-            if isempty(chans) || (ischar(chans) && strcmp(chans, 'all'))
-                chans = 1:size(obj.scalpData.(group).(property), 2); % assuming channels are the 2nd dimension
-            end
-            s = obj.scalpData.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
-        end
+%         function s = getGroupData(obj,group,property,freq,timeName,chans)
+%             % group | name of the group
+%             % property | string of variable
+%             % freq | string of frequency band
+%             % chans | vector of chans to include, if 'all' or empty indicates use all channels
+%             % timeName | string of timeName
+% 
+%             if nargin < 6
+%                 chans = 'all';
+%             end
+% 
+%             freqIdx = find(strcmp(obj.info.freq_list, freq));
+%             timeIdx = obj.info.timeIDX.(timeName);
+% 
+%             if isempty(chans) || (ischar(chans) && strcmp(chans, 'all'))
+%                 chans = 1:size(obj.scalpData.(group).(property), 2); % assuming channels are the 2nd dimension
+%             end
+%             s = obj.scalpData.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
+%         end
         
         
     end
@@ -357,7 +363,7 @@ end
 
 
 %% Function to calculate which electrodes are significant btw two groups
-function pvals=topoSignificance(s1,s2)
+function pvals=calGroupSig(s1,s2)
 
     % s1 and s2 are data matrices size C channels x N subjects
     % key is a two element cell array with markers for non-sig and sig
