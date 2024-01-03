@@ -1,0 +1,213 @@
+%% Climate luckydoor Main analysis
+% Jason Nan
+% 12/19/2023
+clear all;close all;clc
+cd('C:\Users\jason\OneDrive\Desktop\MS Beng\Neatlabs\Climate_LuckyDoor')
+addpath('scripts')
+addpath('A:\eeglab_OldLSL_DataAna04072023')
+eeglab
+%% Loading in data and general preprocessing
+
+% loading in data
+dataPath='A:/ClimateLD/analysis_results/ClimateLD_allgroups_amp_rmv.mat';
+load(dataPath)
+
+% Defining time in mS for baseline correction
+baselineTime=[-250 -50];
+
+% set up the class for Scalp analysis, needs the data structure
+analysis = ERPanalysis(CLIMATELD);
+% remove any missing subjects if any from Scalp data
+analysis = analysis.cleanDatasets('scalpData'); 
+% standard processing pipeline, 5SD outlier, baseline correction
+analysis = analysis.standardPipeline(baselineTime,'scalpData'); 
+
+% repeat for sourceData
+analysis = analysis.cleanDatasets('sourceData'); 
+analysis = analysis.standardPipeline(baselineTime,'sourceData'); 
+
+%% Plotting scalp maps and ERP
+% Defining time ranges of interest
+timeRange.choice=[0 500];
+timeRange.imReward=[500 1000];
+timeRange.cumReward=[1000 1500];
+
+% Plotting scalp topo plots for variables in vars2plot and each timeRange
+% speficied
+vars2plot={'EVgain'};
+analysis = analysis.plotScalpmap(timeRange,vars2plot);
+
+% Plotting significant channels from topo plots as line plots with all
+% groups overlayed. Only selecting conditions which are in the specified
+% vectors for var, frequency, and time ranges. 
+vars2plot={'EVgain'};
+freq2plot={'theta','alpha','beta'};
+times2plot={'choice','imReward','cumReward'};
+
+analysis.plotERPs(vars2plot,freq2plot,times2plot)
+
+%% Plotting Source Activity
+
+fpn=[5 6 55 66 59 60];
+con=[3 4 19 20 37 38 39 40 41 42 57 58 67 68];
+admn=[11 12 25 26 29 30 53 54];
+pdmn=[15 16 21 22 51 52];
+mtldmn=[9 10 17 18 31 32 35 36 61 62 65 66 1];
+vis=[7 8 13 14 23 24 27 28 43 44];
+sm=[33 34 49 50 45 46];
+van=[2 47 48 63 64];
+
+netwrk(1).name='FPN';
+netwrk(1).roi=fpn;
+netwrk(2).name='CON';
+netwrk(2).roi=con;
+netwrk(3).name='aDMN';
+netwrk(3).roi=admn;
+netwrk(4).name='pDMN';
+netwrk(4).roi=pdmn;
+netwrk(5).name='mtlDMN';
+netwrk(5).roi=mtldmn;
+netwrk(6).name='Visual';
+netwrk(6).roi=vis;
+netwrk(7).name='SM';
+netwrk(7).roi=sm;
+netwrk(8).name='VAN';
+netwrk(8).roi=van;
+
+%% plot network
+obj=analysis;
+
+
+obj.info.timeRange=timeRange;
+timeNames = fieldnames(obj.info.timeRange);
+N = length(obj.info.groupNames);
+combinations = nchoosek(1:N,2);
+for p=1:length(properties)
+    property=vars2plot{p};
+    figure
+    for t=1:length(timeNames)
+        time=timeNames{t};
+        [~, startIdx] = min(abs(obj.info.timeAxis - timeRange.(time)(1)));
+        [~, endIdx] = min(abs(obj.info.timeAxis - timeRange.(time)(2)));
+        obj.info.timeIDX.(time)=[startIdx endIdx];
+        timeIdx = obj.info.timeIDX.(time);
+        for f = 1:length(obj.info.freq_list)
+            % Generating plot data
+            data=[];sem=[];
+            for n=1:N
+                for i=1:length(netwrk)
+                    subdata = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{n}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
+                    data(i,n) = nanmean(subdata,'all');
+                    sem(i,n) = std(subdata)/sqrt(length(subdata)); % Standard error of mean across N=51 subjects
+                end
+            end
+            
+            subplot(
+            b=bar(data,'grouped'); hold on
+            % Find the number of groups and the number of bars in each group
+            [ngroups, nbars] = size(data);
+            % Calculate the width for each bar group
+            groupwidth = min(0.8, nbars/(nbars + 1.5));
+            % Set the position of each error bar in the centre of the main bar
+            % Based on barweb.m by Bolu Ajiboye from MATLAB File Exchange
+            for i = 1:nbars
+                % Calculate center of each bar
+                x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
+                errorbar(x, data(:,i), sem(:,i), 'k', 'linestyle', 'none');
+            end
+            legend(obj.info.groupNames)
+
+            for comb = 1:size(combinations, 1)
+                firstSub=combinations(comb, 1);
+                secondSub=combinations(comb, 2);
+
+                for i=1:length(netwrk)
+                    group1 = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{firstSub}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
+                    group2 = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{secondSub}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
+                    
+                    [~,pvals(comb,i)] = ttest2(group1, group2);
+                    
+                end
+                group1Location = (1:ngroups) - groupwidth/2 + (2*firstSub-1) * groupwidth / (2*nbars);
+                group2Location = (1:ngroups) - groupwidth/2 + (2*secondSub-1) * groupwidth / (2*nbars);
+                A=[group1Location;group2Location]';
+                groupingKey = mat2cell(A, ones(1, size(A, 1)), size(A, 2));
+                sigstar(groupingKey,pvals(comb,:))
+            end
+
+         end
+    end
+end
+
+%%
+
+
+
+figure
+count=1;
+
+for freq=1:3
+    for level=2:3
+        for net=1:size(network_data.network,2)
+            data = network_data.network(net).level(level).consistency(cons).data(freq,:);
+            all_net(net,level-1,:)=data';
+        end
+    end
+    
+    %%% Stats for Network Activity
+    [h p] = ttest(squeeze(all_net(:,1,:))',squeeze(all_net(:,2,:))'); 
+    stars=pstar(p);
+    p
+    
+    %disp(string(level)+'-'+string(cons)+' '+ network_data.info.level_name(level)+' '+network_data.info.consistency_name(cons));
+    subplot(1,3,count)
+    %%% Plotting section
+    corr_data=squeeze(mean(all_net,3));
+    sem_activity = std(all_net,0,3)/sqrt(size(all_net,3)); % Standard error of mean across N=51 subjects
+    b=bar(corr_data,'grouped'); hold on
+
+    catlab={'Theta','Alpha','Beta'};
+
+    % Find the number of groups and the number of bars in each group
+    [ngroups, nbars] = size(corr_data);
+    % Calculate the width for each bar group
+    groupwidth = min(0.8, nbars/(nbars + 1.5));
+    % Set the position of each error bar in the centre of the main bar
+    % Based on barweb.m by Bolu Ajiboye from MATLAB File Exchange
+    for i = 1:nbars
+        % Calculate center of each bar
+        x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
+        errorbar(x, corr_data(:,i), sem_activity(:,i), 'k', 'linestyle', 'none');
+        
+    end
+    text(x,b(2).YData+sem_activity(:,2)',stars,'VerticalAlignment','bottom','horizontalalign','center');
+    hold off
+    set(gca,'xticklabel',network_data.info.name,'fontweight','bold','fontsize',12,'Xticklabelrotation',90)%This line should replace the numbers with your categorical label%errorbar(CVmall,CVsemall);
+    %set(gca,'xticklabel',[network_data.info.name(1:2) 'DMN'],'fontweight','bold','fontsize',8)
+    title(catlab(count),'fontweight','bold')
+
+    box off;
+    count=count+1;
+    
+    if freq==1
+        ylabel('Network Activity')
+    end
+
+end
+legend({'One Breath','2+ Breaths'});
+%suptitle('All subjects')
+
+
+
+%%
+function stars=pstar(p)
+    stars=cell(size(p));
+    stars(p>=0.05)={''};
+    stars(p<5E-2)={'*'};
+    stars(p<=1E-3)={'***'};
+end
+
+
+
+
+

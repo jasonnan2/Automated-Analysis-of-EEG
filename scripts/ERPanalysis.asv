@@ -17,12 +17,7 @@ classdef ERPanalysis
             %-------------------------------------------------------------------%
             
             obj.scalpData=myStruct.scalpData;
-            
-            if isfield(myStruct,'sourceData')
-                obj.sourceData=myStruct.sourceData;
-            end
             obj.info=myStruct.info;
-            
             %obj.analysisResults=struct;
             
         end
@@ -63,15 +58,15 @@ classdef ERPanalysis
             for j = 1:length(properties)
                 property = properties{j};
                 disp("Processing "+property)
-                combined = combine_groups(obj,runType,property);
+                combined = combine_groups(obj,property);
                 cleaned = rej5SD(combined);
                 baselineCorrected = baselineCorrection(cleaned,obj.info.baselineIDX);
-                obj = split_combined(obj, baselineCorrected,property,runType);
+                obj = split_combined(obj, baselineCorrected,property);
                 disp('---------------------------------')
             end
         end
         
-        function combined = combine_groups(obj,runType,property)
+        function combined = combine_groups(obj,property)
             disp('Combining groups')
             % stacking groups together for 5SD
             data = cell(1, length(obj.info.groupNames)); % empty cell array
@@ -81,7 +76,7 @@ classdef ERPanalysis
             combined =cat(4,data{:});
         end
 
-        function obj = split_combined(obj, groupedData,property,runType)
+        function obj = split_combined(obj, groupedData,property)
             disp('Splitting groups')
             % Reordering the data back into groups in obj
             for i=1:length(obj.info.groupNames)
@@ -209,83 +204,8 @@ classdef ERPanalysis
                     end
                 end
             end
+
         end
-        function plotNetwork(obj,netwrk,timeRange,properties)
-            obj.info.timeRange=timeRange;
-            timeNames = fieldnames(obj.info.timeRange);
-            N = length(obj.info.groupNames);
-            combinations = nchoosek(1:N,2);
-            for p=1:length(properties)
-                property=properties{p};
-                figure
-                count=0;
-                for t=1:length(timeNames)
-                    time=timeNames{t};
-                    [~, startIdx] = min(abs(obj.info.timeAxis - timeRange.(time)(1)));
-                    [~, endIdx] = min(abs(obj.info.timeAxis - timeRange.(time)(2)));
-                    obj.info.timeIDX.(time)=[startIdx endIdx];
-                    timeIdx = obj.info.timeIDX.(time);
-                    for f = 1:length(obj.info.freq_list)
-                        % Generating plot data
-                        data=[];sem=[];
-                        for n=1:N
-                            for i=1:length(netwrk)
-                                subdata = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{n}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
-                                data(i,n) = nanmean(subdata,'all');
-                                sem(i,n) = std(subdata)/sqrt(length(subdata)); % Standard error of mean across N=51 subjects
-                            end
-                        end
-
-                        count=count+1;
-                        subplot(length(timeNames),length(obj.info.freq_list),count)
-                        b=bar(data,'grouped'); hold on
-                        % Find the number of groups and the number of bars in each group
-                        [ngroups, nbars] = size(data);
-                        % Calculate the width for each bar group
-                        groupwidth = min(0.8, nbars/(nbars + 1.5));
-                        % Set the position of each error bar in the centre of the main bar
-                        % Based on barweb.m by Bolu Ajiboye from MATLAB File Exchange
-                        for i = 1:nbars
-                            % Calculate center of each bar
-                            x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
-                            errorbar(x, data(:,i), sem(:,i), 'k', 'linestyle', 'none');
-                        end
-
-                        for comb = 1:size(combinations, 1)
-                            firstSub=combinations(comb, 1);
-                            secondSub=combinations(comb, 2);
-
-                            for i=1:length(netwrk)
-                                group1 = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{firstSub}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
-                                group2 = squeeze(nanmean(nanmean(obj.sourceData.(obj.info.groupNames{secondSub}).(property)(f,netwrk(i).roi,timeIdx(1):timeIdx(2),:),2),3));
-
-                                [~,pvals(comb,i)] = ttest2(group1, group2);
-
-                            end
-                            group1Location = (1:ngroups) - groupwidth/2 + (2*firstSub-1) * groupwidth / (2*nbars);
-                            group2Location = (1:ngroups) - groupwidth/2 + (2*secondSub-1) * groupwidth / (2*nbars);
-                            A=[group1Location;group2Location]';
-                            groupingKey = mat2cell(A, ones(1, size(A, 1)), size(A, 2));
-                            sigstar(groupingKey,pvals(comb,:))
-                        end
-
-                        set(gca,'xticklabel',{netwrk.name},'fontweight','bold','fontsize',12,'Xticklabelrotation',90)%This line should replace the numbers with your categorical label%errorbar(CVmall,CVsemall);
-                        if t==1
-                            title(obj.info.freq_list{f})
-                        end
-                        if f==1
-                           ylabel(timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
-                        end
-
-                     end
-                end
-                Lgnd = legend(obj.info.groupNames);
-                Lgnd.Position(1) = 0.7;
-                Lgnd.Position(2) = 0.9;
-                sgtitle(property)
-            end
-            end
-
         
     end
 end
