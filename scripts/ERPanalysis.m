@@ -105,35 +105,34 @@ classdef ERPanalysis
             combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
 
             for p=1:length(properties)
-                property=properties{p};
+                property=properties{p}; % get property name
                 for comb = 1:size(combinations, 1)
-                    firstSub=combinations(comb, 1);
-                    secondSub=combinations(comb, 2);
 
-                    group1 = obj.scalpData.(obj.info.groupNames{firstSub}).(property);
-                    group2 = obj.scalpData.(obj.info.groupNames{secondSub}).(property);
+                    group1=obj.info.groupNames{combinations(comb, 1)};
+                    group2=obj.info.groupNames{combinations(comb, 2)};
 
                     figure
                     figCount=0;
                     for t=1:length(timeNames)
-
-                        timeIdx = obj.info.timeIDX.(timeNames{t});
-         
+                        timeName=timeNames{t};
                         for f=1:length(obj.info.freq_list)
+                            freq=obj.info.freq_list{f};
+
                             figCount = figCount + 1;
                             subplot(3,4,figCount)
-                            s1=squeeze(nanmean(group1(f,:,timeIdx(1):timeIdx(2),:),3)); % get to chan x sub of first subject
-                            s2=squeeze(nanmean(group2(f,:,timeIdx(1):timeIdx(2),:),3)); % get to chan x sub of second subject
-                            
+
+                            s1 = squeeze(nanmean(getGroupData(obj,group1,property,freq,timeName),3));
+                            s2 = squeeze(nanmean(getGroupData(obj,group2,property,freq,timeName),3));
+
                             pvals=topoSignificance(s1,s2); % get 1x n channel of p values 
                             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
-                            
+
                             chans2add = chanlabels(pvals<0.05); % significant channels to add to list
-                
+
                             % Check if the field already exists
                             if isfield(obj.analysisResults, 'sigElectrodes') && isfield(obj.analysisResults.sigElectrodes, property) && ...
                                 isfield(obj.analysisResults.sigElectrodes.(property), timeNames{t}) && isfield(obj.analysisResults.sigElectrodes.(property).(timeNames{t}), obj.info.freq_list{f})
-                            
+
                                 % Get the existing cell array
                                 existingArray = obj.analysisResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f});
                                 % Check if the new letter is different from the existing ones
@@ -145,7 +144,7 @@ classdef ERPanalysis
                             end
 
                             plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
-                            
+
                             if t==1
                                 title(obj.info.freq_list{f})
                             end
@@ -287,6 +286,28 @@ classdef ERPanalysis
                 sgtitle(property)
             end
         end
+        
+        function s = getGroupData(obj,group,property,freq,timeName,chans)
+            % group | name of the group
+            % property | string of variable
+            % freq | string of frequency band
+            % chans | vector of chans to include, if 'all' or empty indicates use all channels
+            % timeName | string of timeName
+
+            if nargin < 6
+                chans = 'all';
+            end
+
+            freqIdx = find(strcmp(obj.info.freq_list, freq));
+            timeIdx = obj.info.timeIDX.(timeName);
+
+            if isempty(chans) || (ischar(chans) && strcmp(chans, 'all'))
+                chans = 1:size(obj.scalpData.(group).(property), 2); % assuming channels are the 2nd dimension
+            end
+            s = obj.scalpData.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
+        end
+        
+        
     end
 end
 %%

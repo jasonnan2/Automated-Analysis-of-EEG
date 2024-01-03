@@ -9,22 +9,23 @@ classdef ERPanalysis
     
     methods
         
-        function obj = ERPanalysis(myStruct,timeRange)
+        function obj = ERPanalysis(myStruct,baselineTime, timeRange)
+            % obj           | formatted data structure with properties of DATA
+            % baseline time | vector with start and end time of baseline in mS 
             disp('Initializing object')
-            % obj is the formatted data structure with properties of DATA
+            
             % and info
             % Initializing the properties to the object
             %-------------------------------------------------------------------%
             
             obj.scalpData=myStruct.scalpData;
-            
             if isfield(myStruct,'sourceData')
                 obj.sourceData=myStruct.sourceData;
             end
             obj.info=myStruct.info;
-            
+            [~,baselineIDX]=min(abs(baselineTime'-obj.info.timeAxis)');
+            obj.info.baselineIDX=baselineIDX;
             obj.info.timeRange = timeRange;
-            
             timeNames = fieldnames(obj.info.timeRange);
             for t = 1:length(timeNames)
                 [startIdx, endIdx] = obj.getTimeIndices(timeRange, timeNames{t});
@@ -64,10 +65,7 @@ classdef ERPanalysis
         end
         
 
-        function obj = standardPipeline(obj,baselineTime,runType)
-            % baseline time | vector with start and end time of baseline in mS 
-            [~,baselineIDX]=min(abs(baselineTime'-obj.info.timeAxis)');
-            obj.info.baselineIDX=baselineIDX;
+        function obj = standardPipeline(obj,runType)
             properties = obj.info.variables;
             disp('---------------------------------')
             for j = 1:length(properties)
@@ -103,62 +101,61 @@ classdef ERPanalysis
         function obj=plotScalpmap(obj,properties)
             
             timeNames = fieldnames(obj.info.timeIDX);
-            N = numel(fieldnames(obj.scalpData));
-            combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
+N = numel(fieldnames(obj.scalpData));
+combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
 
-            for p=1:length(properties)
-                property=properties{p};
-                for comb = 1:size(combinations, 1)
-                    firstSub=combinations(comb, 1);
-                    secondSub=combinations(comb, 2);
+for p=1:length(properties)
+    property=properties{p}; % get property name
+    for comb = 1:size(combinations, 1)
+        
+        group1=obj.info.groupNames{combinations(comb, 1)};
+        group2=obj.info.groupNames{combinations(comb, 2)};
 
-                    group1 = obj.scalpData.(obj.info.groupNames{firstSub}).(property);
-                    group2 = obj.scalpData.(obj.info.groupNames{secondSub}).(property);
+        figure
+        figCount=0;
+        for t=1:length(timeNames)
+            timeName=timeNames{t};
+            for f=1:length(obj.info.freq_list)
+                freq=obj.info.freq_list{f};
 
-                    figure
-                    figCount=0;
-                    for t=1:length(timeNames)
-
-                        [startIdx endIdx] = deal(obj.info.timeIDX.(timeNames{t})(:));
-         
-                        for f=1:length(obj.info.freq_list)
-                            figCount = figCount + 1;
-                            subplot(3,4,figCount)
-                            s1=squeeze(nanmean(group1(f,:,startIdx:endIdx,:),3)); % get to chan x sub of first subject
-                            s2=squeeze(nanmean(group2(f,:,startIdx:endIdx,:),3)); % get to chan x sub of second subject
-                            
-                            pvals=topoSignificance(s1,s2); % get 1x n channel of p values 
-                            chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
-                            
-                            chans2add = chanlabels(pvals<0.05); % significant channels to add to list
+                figCount = figCount + 1;
+                subplot(3,4,figCount)
                 
-                            % Check if the field already exists
-                            if isfield(obj.analysisResults, 'sigElectrodes') && isfield(obj.analysisResults.sigElectrodes, property) && ...
-                                isfield(obj.analysisResults.sigElectrodes.(property), timeNames{t}) && isfield(obj.analysisResults.sigElectrodes.(property).(timeNames{t}), obj.info.freq_list{f})
-                            
-                                % Get the existing cell array
-                                existingArray = obj.analysisResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f});
-                                % Check if the new letter is different from the existing ones
-                                chans2add = setdiff(chans2add, existingArray);
-                                obj.analysisResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f}) = [existingArray, chans2add];
-                            elseif ~isempty(chans2add)
-                                % Create a new cell array with the new letter
-                                obj.analysisResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f}) = chans2add;
-                            end
+                s1 = squeeze(nanmean(getGroupData(obj,group1,property,freq,timeName),3));
+                s2 = squeeze(nanmean(getGroupData(obj,group2,property,freq,timeName),3));
+                
+                pvals=topoSignificance(s1,s2); % get 1x n channel of p values 
+                chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
 
-                            plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
-                            
-                            if t==1
-                                title(obj.info.freq_list{f})
-                            end
-                            if f==1
-                                text(-1,-.2, timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
-                            end
-                        end
-                    end
-                    sgtitle(property+" "+obj.info.groupNames(secondSub)+"-"+obj.info.groupNames(firstSub))
+                chans2add = chanlabels(pvals<0.05); % significant channels to add to list
+
+                % Check if the field already exists
+                if isfield(obj.analysisResults, 'sigElectrodes') && isfield(obj.analysisResults.sigElectrodes, property) && ...
+                    isfield(obj.analysisResults.sigElectrodes.(property), timeNames{t}) && isfield(obj.analysisResults.sigElectrodes.(property).(timeNames{t}), obj.info.freq_list{f})
+
+                    % Get the existing cell array
+                    existingArray = obj.analysisResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f});
+                    % Check if the new letter is different from the existing ones
+                    chans2add = setdiff(chans2add, existingArray);
+                    obj.analysisResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f}) = [existingArray, chans2add];
+                elseif ~isempty(chans2add)
+                    % Create a new cell array with the new letter
+                    obj.analysisResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f}) = chans2add;
+                end
+
+                plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
+
+                if t==1
+                    title(obj.info.freq_list{f})
+                end
+                if f==1
+                    text(-1,-.2, timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
                 end
             end
+        end
+        sgtitle(property+" "+obj.info.groupNames(secondSub)+"-"+obj.info.groupNames(firstSub))
+    end
+end
         end
         
         function plotERPs(obj,vars2plot,freq2plot,times2plot)
@@ -237,10 +234,6 @@ classdef ERPanalysis
                 count=0;
                 for t=1:length(timeNames)
                     time=timeNames{t};
-
-                    [startIdx endIdx] = obj.info.timeIDX.(time);
-                    
-                    
                     timeIdx = obj.info.timeIDX.(time);
                     for f = 1:length(obj.info.freq_list)
                         % Generating plot data

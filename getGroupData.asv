@@ -1,0 +1,16 @@
+function s = getGroupData(obj,group,property,freq,timeName,chans)
+    % group | name of the group
+    % property | string of variable
+    % freq | string of frequency band
+    % chans | vector of chans to include, if 'all' or empty indicates use all channels
+    % timeName | string of timeName
+    
+    freqIdx = find(strcmp(obj.info.freq_list, freq));
+    timeIdx = obj.info.timeIDX.(timeName);
+    
+    if nargin < 5 || isempty(chans) || (ischar(chans) && strcmp(chans, 'all'))
+        chans = 1:size(obj.scalpData.(group).(property), 2); % assuming channels are the 2nd dimension
+    end
+    
+    s = obj.scalpData.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
+end
