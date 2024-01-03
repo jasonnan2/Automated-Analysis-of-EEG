@@ -22,6 +22,7 @@ analysis = analysis.standardPipeline(baselineTime,'scalpData');
 analysis = analysis.cleanDatasets('sourceData'); 
 analysis = analysis.standardPipeline(baselineTime,'sourceData'); 
 %% Plotting scalp maps and ERP
+
 % Defining time ranges of interest
 timeRange.choice=[0 500];
 timeRange.imReward=[500 1000];
@@ -38,11 +39,11 @@ freq2plot={'broadband'};
 times2plot={'choice','imReward','cumReward'};
 analysis.plotERPs(vars2plot,freq2plot,times2plot)
 
-% plot network
-analysis.plotNetwork(netwrk,timeRange,vars2plot)
+
 %% Plotting Source Activity
 
-fpn=[5 6 55 66 59 60]; con=[3 4 19 20 37 38 39 40 41 42 57 58 67 68];
+fpn=[5 6 55 66 59 60];
+con=[3 4 19 20 37 38 39 40 41 42 57 58 67 68];
 admn=[11 12 25 26 29 30 53 54];
 pdmn=[15 16 21 22 51 52];
 mtldmn=[9 10 17 18 31 32 35 36 61 62 65 66 1];
@@ -67,9 +68,9 @@ netwrk(7).roi=sm;
 netwrk(8).name='VAN';
 netwrk(8).roi=van;
 
+analysis.plotNetwork(netwrk,timeRange,vars2plot)
 
 
-%%
 
 
 

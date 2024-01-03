@@ -154,6 +154,7 @@ classdef ERPanalysis
         end
         
         function plotERPs(obj,vars2plot,freq2plot,times2plot)
+            color_list={'g','b','r'};
             N=numel(fieldnames(obj.scalpData));
             timeNames = fieldnames(obj.info.timeRange);
             sigElectrodes=obj.analysisResults.sigElectrodes;
@@ -191,18 +192,26 @@ classdef ERPanalysis
                                 timeIdx = obj.info.timeIDX.(time);
                                 elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
                                 data=[];
+                                hold on
+                                h = gobjects(N, 1); % Preallocate an array for the line handles
                                 for n=1:N
-                                    data(:,n) = squeeze(nanmean(obj.scalpData.(obj.info.groupNames{n}).(property)(freqIdx,elecIdxs,timeIdx(1):timeIdx(2),:),4));
+                                    d=obj.scalpData.(obj.info.groupNames{n}).(property)(freqIdx,elecIdxs,timeIdx(1):timeIdx(2),:);
+                                    data(:,n) = squeeze(nanmean(d,4));
+                                    eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n),std(squeeze(d)')/sqrt(size(d,4)), color_list{n});
+                                    h(n) = eb.mainLine;
+                                    set(get(get(eb.patch, 'Annotation'), 'LegendInformation'), 'IconDisplayStyle', 'off');
                                 end
 
-                                plot(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data)
+                                hold off
+                                %plot(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data)
+
                                 title(chan)
                                 if c==1
                                     ylabel(freq,'fontweight','bold','fontsize',16)
                                 end
                             end
                         end
-                        Lgnd = legend(obj.info.groupNames);
+                        Lgnd = legend(h,obj.info.groupNames);
                         Lgnd.Position(1) = 0.7;
                         Lgnd.Position(2) = 0.9;
                         sgtitle(strcat(property,'-',time))
