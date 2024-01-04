@@ -58,13 +58,7 @@ classdef SourceAnalysis < DataAnalysis
                             groupingKey = mat2cell(A, ones(1, size(A, 1)), size(A, 2));
                             sigstar(groupingKey,pvals(comb,:))
                         end
-                        
-                        
-                        
-                        
-                        
-                        
-                        
+
                         set(gca,'xticklabel',{netwrk.name},'fontweight','bold','fontsize',12,'Xticklabelrotation',90)%This line should replace the numbers with your categorical label%errorbar(CVmall,CVsemall);
                         if t==1
                             title(freq)
@@ -81,5 +75,37 @@ classdef SourceAnalysis < DataAnalysis
             end
 
         end
+        function obj=plotBrainmap(obj,properties)
+            hm = headModel.loadFromFile('headModel_templateFile_32chan.mat');
+            T = hm.indices4Structure(hm.atlas.label);
+            T = double(T)';
+            timeNames = fieldnames(obj.info.timeIDX);
+            N = numel(fieldnames(obj.DATA));
+            combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
+            for p=1:length(properties)
+                property=properties{p}; % get property name
+                for comb = 1:size(combinations, 1)
+                    group1=obj.info.groupNames{combinations(comb, 1)};
+                    group2=obj.info.groupNames{combinations(comb, 2)};    
+                    for t=1:length(timeNames)
+                        timeName=timeNames{t};
+                        for f=1:length(obj.info.freq_list)
+                            freq=obj.info.freq_list{f};
+                            % average in time dimension
+                            s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
+                            s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
+                            pvals(:,f)=obj.calGroupSig(s1,s2); % get 1x n channel of p values 
+                            plotdata(:,f)=nanmean(s2,2)-nanmean(s1,2);
+                        end
+                        plotdata(pvals>0.05)=0; % Uncorrected p-value thresholding only for PostPre difference condition
+                        plot68roi(hm, T'*plotdata, 1,obj.info.freq_list)
+                        hAx = axes('Position', [0, 0, 1, 1], 'Visible', 'off');
+                        text(0.5, 1, property+" "+timeName+" "+group2+"-"+group1, 'Units', 'normalized', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
+                    end
+                end
+            end
+        end
+        %--------------END OF CLASS METHODS-----------------------%
     end
+    %--------------END OF CLASS-----------------------%
 end
