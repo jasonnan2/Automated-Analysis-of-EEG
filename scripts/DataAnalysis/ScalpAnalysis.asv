@@ -72,13 +72,8 @@ classdef ScalpAnalysis < DataAnalysis
         end
         
         function plotERPs(obj,vars2plot,freq2plot,times2plot,errorType)
-            if nargin <5 || isempty(errorType)
-                errorType='none';
-            end
-            
-            if ~ismember(errorType, {'none', 'sem', '95CI'})
-                error('Invalid value for errorType. Allowed values are ''none'', ''sem'', and ''95CI''.');
-            end
+            if varargin<5
+                errorType=
             
             color_list={'g','b','r'};
             N=numel(fieldnames(obj.DATA));
@@ -110,8 +105,7 @@ classdef ScalpAnalysis < DataAnalysis
 
                             for c=1:length(sig.(freq_list{f}))
 
-                                %subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
-                                subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f)
+                                subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
 
                                 freq=freq_list{f};
                                 chan=sig.(freq){c};
@@ -130,28 +124,19 @@ classdef ScalpAnalysis < DataAnalysis
                                     ts = tinv([0.025  0.975],size(d,4)-1);   % T-Score
                                     CI(:,1) = ts(2)*sem; %upperCI
                                     CI(:,2) = ts(1)*sem; %lowerCI
-                                    
-                                    
-                                    if strcmp(errorType,'sem')
-                                        eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n),sem, color_list{n});
-                                    elseif strcmp(errorType,'95CI')
-                                        eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n)',CI', color_list{n},1);
-                                    end
-                                    
-                                    if strcmp(errorType,'sem') || strcmp(errorType,'95CI')
-                                        h(n) = eb.mainLine;
-                                        set(get(get(eb.patch, 'Annotation'), 'LegendInformation'), 'IconDisplayStyle', 'off');
-                                    end
-                                    
-                                end
-                                hold off
-                                if strcmp(errorType,'none')
-                                    h=plot(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data);
+
+                                    %eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n),sem, color_list{n});
+                                    eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n)',CI', color_list{n},1);
+                                    h(n) = eb.mainLine;
+                                    set(get(get(eb.patch, 'Annotation'), 'LegendInformation'), 'IconDisplayStyle', 'off');
                                 end
 
-                                ylabel(chan)
+                                hold off
+                                %plot(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data)
+
+                                title(chan)
                                 if c==1
-                                    title(freq,'fontweight','bold','fontsize',16)
+                                    ylabel(freq,'fontweight','bold','fontsize',16)
                                 end
                             end
                         end

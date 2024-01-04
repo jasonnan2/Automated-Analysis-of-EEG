@@ -62,15 +62,33 @@ scalpObject = scalpObject.plotScalpmap(vars2plot);
 % groups overlayed. Only selecting conditions which are in the specified
 % vectors for var, frequency, and time ranges. 
 vars2plot={'EVgain'};
-freq2plot={'alpha'};
+freq2plot={'broadband'};
 times2plot={'choice','imReward','cumReward'};
-scalpObject.plotERPs(vars2plot,freq2plot,times2plot)
+%%
+
+errorType='none';
+scalpObject.plotERPs(vars2plot,freq2plot,times2plot,errorType)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 %% brainNetwork Analysis
 sourceObject=SourceAnalysis(CLIMATELD.sourceData, CLIMATELD.info, baselineTime, timeRange);
 sourceObject = sourceObject.cleanDatasets(); 
 sourceObject = sourceObject.standardPipeline(); 
-
 sourceObject.plotNetwork(netwrk,vars2plot)
 
 

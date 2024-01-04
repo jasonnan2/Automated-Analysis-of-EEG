@@ -1,4 +1,7 @@
 classdef DataAnalysis
+    %%% TODO %%%
+    % Add in option for paired or 2 sample ttest
+    % Add in option to choose what pairings to run 
     properties
         info
     end

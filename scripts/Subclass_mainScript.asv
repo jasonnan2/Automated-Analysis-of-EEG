@@ -18,14 +18,41 @@ timeRange.choice=[0 500];
 timeRange.imReward=[500 1000];
 timeRange.cumReward=[1000 1500];
 
-%% Initializing Scalp Class
+% defining network
+fpn=[5 6 55 66 59 60];
+con=[3 4 19 20 37 38 39 40 41 42 57 58 67 68];
+admn=[11 12 25 26 29 30 53 54];
+pdmn=[15 16 21 22 51 52];
+mtldmn=[9 10 17 18 31 32 35 36 61 62 65 66 1];
+vis=[7 8 13 14 23 24 27 28 43 44];
+sm=[33 34 49 50 45 46];
+van=[2 47 48 63 64];
+
+netwrk(1).name='FPN';
+netwrk(1).roi=fpn;
+netwrk(2).name='CON';
+netwrk(2).roi=con;
+netwrk(3).name='aDMN';
+netwrk(3).roi=admn;
+netwrk(4).name='pDMN';
+netwrk(4).roi=pdmn;
+netwrk(5).name='mtlDMN';
+netwrk(5).roi=mtldmn;
+netwrk(6).name='Visual';
+netwrk(6).roi=vis;
+netwrk(7).name='SM';
+netwrk(7).roi=sm;
+netwrk(8).name='VAN';
+netwrk(8).roi=van;
+
+
+%% Scalp ERP Analysis
 
 scalpObject=ScalpAnalysis(CLIMATELD.scalpData, CLIMATELD.info, baselineTime, timeRange);
 % remove any missing subjects if any from Scalp data
 scalpObject = scalpObject.cleanDatasets(); 
 % standard processing pipeline, 5SD outlier, baseline correction
 scalpObject = scalpObject.standardPipeline(); 
-%% Plotting scalp maps and ERP
 
 % Plotting scalp topo plots for variables in vars2plot and each timeRange
 % speficied
@@ -35,13 +62,34 @@ scalpObject = scalpObject.plotScalpmap(vars2plot);
 % groups overlayed. Only selecting conditions which are in the specified
 % vectors for var, frequency, and time ranges. 
 vars2plot={'EVgain'};
-freq2plot={'alpha'};
-times2plot={'choice','imReward','cumReward'};
-scalpObject.plotERPs(vars2plot,freq2plot,times2plot)
+freq2plot={'broadband','alpha'};
+times2plot={'cumReward','choice'};
+%%
 
-%% repeat for sourceData
-analysis = analysis.cleanDatasets('sourceData'); 
-analysis = analysis.standardPipeline('sourceData'); 
+errorType='none';
+scalpObject.plotERPs(vars2plot,freq2plot,times2plot,errorType)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%% brainNetwork Analysis
+sourceObject=SourceAnalysis(CLIMATELD.sourceData, CLIMATELD.info, baselineTime, timeRange);
+sourceObject = sourceObject.cleanDatasets(); 
+sourceObject = sourceObject.standardPipeline(); 
+sourceObject.plotNetwork(netwrk,vars2plot)
 
 
 
