@@ -109,7 +109,7 @@ classdef DataAnalysis
             end
             s = obj.DATA.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
         end
-        %--------------END OF STATIC METHODS-----------------------%
+        %--------------END OF CLASS METHODS-----------------------%
     end
     
     methods (Static)
@@ -149,6 +149,15 @@ classdef DataAnalysis
 
             s1=squeeze(s1);
             s2=squeeze(s2);
+            
+            if iscolumn(s1)
+                s1=s1';
+            end
+            if iscolumn(s2)
+                s2=s2';
+            end
+            
+            
             for chan = 1:size(s1,1)
                 % Get non-NaN indices
                 [~,pvals(chan)] = ttest2(s1(chan,:), s2(chan,:));
@@ -156,6 +165,29 @@ classdef DataAnalysis
                     disp('asdfawrsasdbaweasbas')
                     waitforbuttonpress
                 end
+            end
+        end
+        function plotErrBar(data,sem)
+            color_list={'g','b','r'};
+            if isrow(data) | iscolumn(data)
+                data = vertcat(data,nan(size(data)));
+                sem = vertcat(sem,nan(size(sem)));
+                xlim([0.5 1.5])
+            end
+            b=bar(data,'grouped'); hold on % data size N networks x G groups
+            
+            for i=1:length(b)
+                b(i).FaceColor=color_list{i}
+            end
+            
+            % Find the number of groups and the number of bars in each group
+            [ngroups, nbars] = size(data);
+            % Calculate the width for each bar group
+            groupwidth = min(0.8, nbars/(nbars + 1.5));
+            for i = 1:nbars
+                % Calculate center of each bar
+                x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
+                errorbar(x, data(:,i), sem(:,i), 'k', 'linestyle', 'none');
             end
         end
         %--------------END OF STATIC METHODS-----------------------%

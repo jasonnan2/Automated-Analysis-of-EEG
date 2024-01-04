@@ -61,28 +61,22 @@ scalpObject = scalpObject.plotScalpmap(vars2plot);
 % Plotting significant channels from topo plots as line plots with all
 % groups overlayed. Only selecting conditions which are in the specified
 % vectors for var, frequency, and time ranges. 
+
+%%
 vars2plot={'EVgain'};
 freq2plot={'broadband'};
-times2plot={'choice','imReward','cumReward'};
-%%
-
+times2plot={'choice'};
+close all
 errorType='none';
 scalpObject.plotERPs(vars2plot,freq2plot,times2plot,errorType)
 
+%% Scalp bar graph
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+vars2plot={'EVgain'};
+freq2plot={'broadband','alpha'};
+times2plot={'cumReward'};
+close all
+scalpObject.plotScalpBar(vars2plot,freq2plot,times2plot)
 
 
 %% brainNetwork Analysis
@@ -90,13 +84,6 @@ sourceObject=SourceAnalysis(CLIMATELD.sourceData, CLIMATELD.info, baselineTime, 
 sourceObject = sourceObject.cleanDatasets(); 
 sourceObject = sourceObject.standardPipeline(); 
 sourceObject.plotNetwork(netwrk,vars2plot)
-
-
-
-
-
-
-
 
 
 

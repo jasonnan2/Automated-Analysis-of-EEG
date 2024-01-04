@@ -133,7 +133,7 @@ classdef ScalpAnalysis < DataAnalysis
                                     
                                     
                                     if strcmp(errorType,'sem')
-                                        eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n),sem, color_list{n});
+                                        eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n),[sem,-sem], color_list{n},1);
                                     elseif strcmp(errorType,'95CI')
                                         eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n)',CI', color_list{n},1);
                                     end
@@ -147,6 +147,7 @@ classdef ScalpAnalysis < DataAnalysis
                                 hold off
                                 if strcmp(errorType,'none')
                                     h=plot(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data);
+                                    arrayfun(@(x) set(h(x), 'Color', color_list{x}), 1:N);
                                 end
 
                                 ylabel(chan)
@@ -163,7 +164,88 @@ classdef ScalpAnalysis < DataAnalysis
                 end
             end
         end
+        function plotScalpBar(obj,vars2plot,freq2plot,times2plot)
+            N=numel(fieldnames(obj.DATA));
+            combinations = nchoosek(1:N,2);
+            timeNames = fieldnames(obj.info.timeRange);
+            sigElectrodes=obj.scalpResults.sigElectrodes;
+            for p=1:length(vars2plot)
+                property=vars2plot{p};
+                time_list = intersect(fieldnames(sigElectrodes.(property)),times2plot);
+
+                for t=1:length(time_list)
+
+                    timeName=time_list{t};
+                    sig=sigElectrodes.(property).(timeName);
+                    [~,~,ib] = intersect(fieldnames(sig),freq2plot);
+                    freq_list=freq2plot(sort(ib));
+
+                    % get longest electrode map
+                    maxLength = 0;
+                    for i = 1:length(freq_list)
+                        currentLength = length(sig.(freq_list{i}));  % Get the length of the current cell array
+                        if currentLength > maxLength
+                            maxLength = currentLength;  % Update the maximum length
+                        end
+                    end
+
+                    if ~isempty(freq_list)
+                        figure
+                        for f=1:length(freq_list)
+
+                            for c=1:length(sig.(freq_list{f}))
+
+                                %subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
+                                subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f)
+
+                                freq=freq_list{f};
+                                chan=sig.(freq){c};
+                                freqIdx = find(strcmp(obj.info.freq_list, freq));
+                                timeIdx = obj.info.timeIDX.(timeName);
+                                elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
+                                data=[];sem=[];
+                                hold on
+                                for n=1:N
+                                    subdata = squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3));
+                                    data(n) = nanmean(subdata);
+                                    sem(n) = std(subdata)/sqrt(length(subdata));
+                                end
+                                obj.plotErrBar(data,sem)
+                                [ngroups, nbars] = size(data);
+                                groupwidth = min(0.8, nbars/(nbars + 1.5));
+
+                                for comb = 1:size(combinations, 1)
+                                    group1=obj.info.groupNames{combinations(comb, 1)};
+                                    group2=obj.info.groupNames{combinations(comb, 2)};
+                                    s1=[];s2=[];
+                                    s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName,elecIdxs),3));
+                                    s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName,elecIdxs),3));
+                                    pvals(comb,:)=obj.calGroupSig(s1,s2);
+                                    group1Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 1)-1) * groupwidth / (2*nbars);
+                                    group2Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 2)-1) * groupwidth / (2*nbars);
+                                    A=[group1Location;group2Location]';
+                                    groupingKey = mat2cell(A, ones(1, size(A, 1)), size(A, 2));
+                                    sigstar(groupingKey,pvals(comb,:))
+                                end
+                                hold off
+                                xlabel(chan)
+                                xticks([])
+                                if c==1
+                                    title(freq,'fontweight','bold','fontsize',16)
+                                end
+                            end
+                        end
+                        Lgnd = legend(obj.info.groupNames);
+                        Lgnd.Position(1) = 0.7;
+                        Lgnd.Position(2) = 0.9;
+                        sgtitle(strcat(property,'-',timeName))
+                    end
+                end
+            end
+        end
+        %--------------END OF CLASS METHODS-----------------------%
     end
+    %--------------END OF CLASS-----------------------%
 end
 
 

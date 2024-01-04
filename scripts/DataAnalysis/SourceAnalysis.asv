@@ -37,17 +37,31 @@ classdef SourceAnalysis < DataAnalysis
                         subplot(length(timeNames),length(obj.info.freq_list),count)
                         
                         obj.plotErrBar(data,sem)
+                        
+                        if isrow(data) | iscolumn(data)
+                            data = vertcat(data,nan(size(data)));
+                            sem = vertcat(sem,nan(size(sem)));
+                        end
+                        b=bar(data,'grouped'); hold on % data size N networks x G groups
+                        
+                        % Find the number of groups and the number of bars in each group
                         [ngroups, nbars] = size(data);
+                        % Calculate the width for each bar group
                         groupwidth = min(0.8, nbars/(nbars + 1.5));
-
+                        for i = 1:nbars
+                            % Calculate center of each bar
+                            x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
+                            errorbar(x, data(:,i), sem(:,i), 'k', 'linestyle', 'none');
+                        end
+  
                         for comb = 1:size(combinations, 1)
                             group1=obj.info.groupNames{combinations(comb, 1)};
                             group2=obj.info.groupNames{combinations(comb, 2)};
                             s1=[];s2=[];
                             for i=1:length(netwrk)
                                 % collapsing networks
-                                s1(i,:) = squeeze(nanmean(nanmean(obj.getGroupData(group1,property,freq,timeName,netwrk(i).roi),2),3));
-                                s2(i,:) = squeeze(nanmean(nanmean(obj.getGroupData(group2,property,freq,timeName,netwrk(i).roi),2),3));
+                                s1(i,:) = squeeze(nanmean(nanmean(getGroupData(obj,group1,property,freq,timeName,netwrk(i).roi),2),3));
+                                s2(i,:) = squeeze(nanmean(nanmean(getGroupData(obj,group2,property,freq,timeName,netwrk(i).roi),2),3));
                             end
                             %[~,pvals(comb,:)] = ttest2(s1, s2);
                             pvals(comb,:)=obj.calGroupSig(s1,s2);
