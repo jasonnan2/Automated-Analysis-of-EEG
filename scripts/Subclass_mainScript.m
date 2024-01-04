@@ -1,4 +1,4 @@
-%% Climate luckydoor Main analysis - with single class named ERPanalysis
+%% Climate luckydoor Main analysis - with subclasses
 % Jason Nan
 % 12/19/2023
 clear all;close all;clc
@@ -18,32 +18,7 @@ timeRange.choice=[0 500];
 timeRange.imReward=[500 1000];
 timeRange.cumReward=[1000 1500];
 
-% set up the class for Scalp analysis, needs the data structure
-analysis = ERPanalysis(CLIMATELD,baselineTime,timeRange);
-% remove any missing subjects if any from Scalp data
-analysis = analysis.cleanDatasets('scalpData'); 
-% standard processing pipeline, 5SD outlier, baseline correction
-analysis = analysis.standardPipeline('scalpData'); 
-% repeat for sourceData
-analysis = analysis.cleanDatasets('sourceData'); 
-analysis = analysis.standardPipeline('sourceData'); 
-%% Plotting scalp maps and ERP
-
-% Plotting scalp topo plots for variables in vars2plot and each timeRange
-% speficied
-vars2plot={'EVgain'};
-analysis = analysis.plotScalpmap(vars2plot);
-% Plotting significant channels from topo plots as line plots with all
-% groups overlayed. Only selecting conditions which are in the specified
-% vectors for var, frequency, and time ranges. 
-vars2plot={'EVgain'};
-freq2plot={'alpha'};
-times2plot={'choice','imReward','cumReward'};
-analysis.plotERPs(vars2plot,freq2plot,times2plot)
-
-
-%% Plotting Source Activity
-
+% defining network
 fpn=[5 6 55 66 59 60];
 con=[3 4 19 20 37 38 39 40 41 42 57 58 67 68];
 admn=[11 12 25 26 29 30 53 54];
@@ -70,7 +45,44 @@ netwrk(7).roi=sm;
 netwrk(8).name='VAN';
 netwrk(8).roi=van;
 
-analysis.plotNetwork(netwrk,vars2plot)
+
+%% Scalp ERP Analysis
+
+scalpObject=ScalpAnalysis(CLIMATELD.scalpData, CLIMATELD.info, baselineTime, timeRange);
+% remove any missing subjects if any from Scalp data
+scalpObject = scalpObject.cleanDatasets(); 
+% standard processing pipeline, 5SD outlier, baseline correction
+scalpObject = scalpObject.standardPipeline(); 
+
+% Plotting scalp topo plots for variables in vars2plot and each timeRange
+% speficied
+vars2plot={'EVgain'};
+scalpObject = scalpObject.plotScalpmap(vars2plot);
+% Plotting significant channels from topo plots as line plots with all
+% groups overlayed. Only selecting conditions which are in the specified
+% vectors for var, frequency, and time ranges. 
+vars2plot={'EVgain'};
+freq2plot={'alpha'};
+times2plot={'choice','imReward','cumReward'};
+scalpObject.plotERPs(vars2plot,freq2plot,times2plot)
+
+%% brainNetwork Analysis
+sourceObject=SourceAnalysis(CLIMATELD.sourceData, CLIMATELD.info, baselineTime, timeRange);
+sourceObject = sourceObject.cleanDatasets(); 
+sourceObject = sourceObject.standardPipeline(); 
+
+sourceObject.plotNetwork(netwrk,vars2plot)
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,0 +1,60 @@
+%% Climate luckydoor Main analysis - with subclasses
+% Jason Nan
+% 12/19/2023
+clear all;close all;clc
+cd('C:\Users\jason\OneDrive\Desktop\MS Beng\Neatlabs\Climate_LuckyDoor')
+addpath('scripts')
+addpath('scripts/DataAnalysis')
+addpath('A:\eeglab_OldLSL_DataAna04072023')
+eeglab
+%% Loading in data and general preprocessing
+% loading in data
+dataPath='A:/ClimateLD/analysis_results/ClimateLD_allgroups_amp_rmv.mat';
+load(dataPath)
+% Defining time in mS for baseline correction
+baselineTime=[-250 -50];
+% Defining time ranges of interest
+timeRange.choice=[0 500];
+timeRange.imReward=[500 1000];
+timeRange.cumReward=[1000 1500];
+
+%% Initializing Scalp Class
+
+scalpObject=ScalpAnalysis(CLIMATELD.scalpData, CLIMATELD.info, baselineTime, timeRange);
+% remove any missing subjects if any from Scalp data
+scalpObject = scalpObject.cleanDatasets(); 
+% standard processing pipeline, 5SD outlier, baseline correction
+scalpObject = scalpObject.standardPipeline(); 
+%% Plotting scalp maps and ERP
+
+% Plotting scalp topo plots for variables in vars2plot and each timeRange
+% speficied
+vars2plot={'EVgain'};
+scalpObject = scalpObject.plotScalpmap(vars2plot);
+% Plotting significant channels from topo plots as line plots with all
+% groups overlayed. Only selecting conditions which are in the specified
+% vectors for var, frequency, and time ranges. 
+vars2plot={'EVgain'};
+freq2plot={'alpha'};
+times2plot={'choice','imReward','cumReward'};
+scalpObject.plotERPs(vars2plot,freq2plot,times2plot)
+
+%% repeat for sourceData
+analysis = analysis.cleanDatasets('sourceData'); 
+analysis = analysis.standardPipeline('sourceData'); 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
