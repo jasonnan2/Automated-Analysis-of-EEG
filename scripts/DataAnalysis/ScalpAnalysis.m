@@ -36,7 +36,6 @@ classdef ScalpAnalysis < DataAnalysis
 
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
-
                             pvals=obj.calGroupSig(s1,s2); % get 1x n channel of p values 
                             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
 
@@ -196,7 +195,7 @@ classdef ScalpAnalysis < DataAnalysis
                             for c=1:length(sig.(freq_list{f}))
 
                                 %subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
-                                subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f)
+                                subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f);
 
                                 freq=freq_list{f};
                                 chan=sig.(freq){c};
@@ -210,7 +209,7 @@ classdef ScalpAnalysis < DataAnalysis
                                     data(n) = nanmean(subdata);
                                     sem(n) = std(subdata)/sqrt(length(subdata));
                                 end
-                                obj.plotErrBar(data,sem)
+                                obj.plotErrBar(data,sem);
                                 [ngroups, nbars] = size(data);
                                 groupwidth = min(0.8, nbars/(nbars + 1.5));
 

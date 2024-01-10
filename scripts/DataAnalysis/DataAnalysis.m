@@ -109,6 +109,25 @@ classdef DataAnalysis
             end
             s = obj.DATA.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
         end
+        
+        function obj=applyFunc(obj,func)
+            % func is function handel in the format of @(x)function(x,optional arguments)
+            for p=1:length(obj.info.variables)
+                property=obj.info.variables{p};
+                for g=1:length(obj.info.groupNames)
+                    group=obj.info.groupNames{g};
+                    for f=1:length(obj.info.freq_list)
+                        data = squeeze(obj.DATA.(group).(property)(f,:,:,:));
+                        for c=1:size(data,1)
+                            x =func(squeeze(data(c,:,:))); % size time x N subs
+                            obj.DATA.(group).(property)(f,c,:,:) = x;
+                            x=[];
+                        end
+                    end
+                end
+            end
+        end
+       
         %--------------END OF CLASS METHODS-----------------------%
     end
     
@@ -141,7 +160,6 @@ classdef DataAnalysis
 
         % Function to calculate which electrodes are significant btw two groups
         function pvals=calGroupSig(s1,s2)
-
             % s1 and s2 are data matrices size C channels x N subjects
             % key is a two element cell array with markers for non-sig and sig
             % new_chan is the chan_locs
@@ -177,7 +195,7 @@ classdef DataAnalysis
             b=bar(data,'grouped'); hold on % data size N networks x G groups
             
             for i=1:length(b)
-                b(i).FaceColor=color_list{i}
+                b(i).FaceColor=color_list{i};
             end
             
             % Find the number of groups and the number of bars in each group

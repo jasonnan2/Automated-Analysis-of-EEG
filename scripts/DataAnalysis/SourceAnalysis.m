@@ -75,13 +75,17 @@ classdef SourceAnalysis < DataAnalysis
             end
 
         end
-        function obj=plotBrainmap(obj,properties)
-            hm = headModel.loadFromFile('headModel_templateFile_32chan.mat');
+        function obj=plotBrainmap(obj,properties,combinations)
+            hm = headModel.loadFromFile('headModel_templateFile_newPEBplus.mat');
             T = hm.indices4Structure(hm.atlas.label);
             T = double(T)';
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
-            combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
+            
+            if ~exist('combinations')
+                combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
+            end
+            
             for p=1:length(properties)
                 property=properties{p}; % get property name
                 for comb = 1:size(combinations, 1)
@@ -89,16 +93,37 @@ classdef SourceAnalysis < DataAnalysis
                     group2=obj.info.groupNames{combinations(comb, 2)};    
                     for t=1:length(timeNames)
                         timeName=timeNames{t};
+                        plotdata=[];
                         for f=1:length(obj.info.freq_list)
                             freq=obj.info.freq_list{f};
                             % average in time dimension
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
                             pvals(:,f)=obj.calGroupSig(s1,s2); % get 1x n channel of p values 
-                            plotdata(:,f)=nanmean(s2,2)-nanmean(s1,2);
+                            plotdata(:,f)=nanmean(s2,2)-nanmean(s1,2); % average across subjects and subtract
+                            roi2add = obj.info.roi(pvals(:,f)<=0.05);
+                            %%% adding ROI's to results
+                            % Check if the field already exists
+                            if isfield(obj.sourceResults, 'sigROIs') && isfield(obj.sourceResults.sigROIs, property) && ...
+                                isfield(obj.sourceResults.sigROIs.(property), timeNames{t}) && isfield(obj.sourceResults.sigROIs.(property).(timeNames{t}), obj.info.freq_list{f})
+                                % Get the existing cell array
+                                existingArray = obj.sourceResults.sigROIs.(property).(timeNames{t}).(obj.info.freq_list{f});
+                                % Check if the new letter is different from the existing ones
+                                roi2add = setdiff(roi2add, existingArray);
+                                obj.sourceResults.sigROIs.(property).(timeNames{t}).(obj.info.freq_list{f}) = [existingArray; roi2add];
+                            elseif ~isempty(roi2add)
+                                % Create a new cell array with the new letter
+                                obj.sourceResults.sigROIs.(property).(timeNames{t}).(obj.info.freq_list{f}) = roi2add;
+                            end
                         end
-                        plotdata(pvals>0.05)=0; % Uncorrected p-value thresholding only for PostPre difference condition
-                        plot68roi(hm, T'*plotdata, 1,obj.info.freq_list)
+                        
+                        
+                        %plotdata(pvals>0.05)=0; % Uncorrected p-value thresholding only for PostPre difference condition
+                        
+                        tohide = T'*(pvals>0.05);
+                        X=T'*plotdata;
+                        X(tohide==1)=0;
+                        plot68roi(hm,X , 1,obj.info.freq_list)
                         hAx = axes('Position', [0, 0, 1, 1], 'Visible', 'off');
                         text(0.5, 1, property+" "+timeName+" "+group2+"-"+group1, 'Units', 'normalized', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
                     end
