@@ -53,7 +53,7 @@ classdef DataAnalysis
                 fieldData(:,:,:,missingidx) = [];
                 % Assign the cleaned field data back to the data structure
                 data.(fieldNames{v}) = fieldData;
-                data.missingSubs{v}=[fieldNames{v} data.subList(missingidx)];
+                data.missingSubs{v}=[fieldNames{v} reshape(data.subList(missingidx), 1, [])];
             end
         end
         

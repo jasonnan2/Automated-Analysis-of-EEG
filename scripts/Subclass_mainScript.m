@@ -8,7 +8,9 @@ addpath('scripts/DataAnalysis')
 addpath('A:\eeglab_OldLSL_DataAna04072023')
 eeglab
 %% Loading in data and definitions
-dataPath='A:/ClimateLD/analysis_results/ClimateLD_allgroups_amp_rmv.mat';
+%dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_allgroups_amp_rmv.mat';
+%dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_combinedGroup_amp_rmv.mat';
+dataPath='A:\ClimateLD\analysis_results\formattedData\ClimateLD_traumaGroup_amp_rmv.mat';
 load(dataPath)
 % Defining time in mS for baseline correction
 baselineTime=[-250 -50];
@@ -30,16 +32,14 @@ van=[2 47 48 63 64];netwrk(8).name='VAN';netwrk(8).roi=van;
 scalpObject=ScalpAnalysis(CLIMATELD.scalpData, CLIMATELD.info, baselineTime, timeRange); % Initialize scalp processing
 scalpObject = scalpObject.cleanDatasets(); % remove any missing subjects if any from Scalp data
 scalpObject = scalpObject.standardPipeline(); % standard processing pipeline, 5SD outlier, baseline correction
-func=@(x) abs(hilbert(x));
-scalpObject = scalpObject.applyFunc(func);
+%func=@(x) abs(hilbert(x));
+%scalpObject = scalpObject.applyFunc(func);
 vars2plot={'EVgain'};
 scalpObject = scalpObject.plotScalpmap(vars2plot);% scalp topo plots for specified measure
 
-
-
 %%
 freq2plot={'broadband'};
-times2plot={'cumReward'};
+times2plot={'choice'};
 close all
 errorType='none';
 % Plotting significant channels from topo plots as line plots and bargraph 
@@ -52,7 +52,18 @@ sourceObject=SourceAnalysis(CLIMATELD.sourceData, CLIMATELD.info, baselineTime, 
 sourceObject = sourceObject.cleanDatasets(); 
 sourceObject = sourceObject.standardPipeline();
 sourceObject.plotNetwork(netwrk,vars2plot); % grouped network bar plots for specified measure
-combinations=[1 3;2 3];
+%combinations=[1 3;2 3];
+combinations=[1,2];
 sourceObject = sourceObject.plotBrainmap(vars2plot,combinations); % full roi plot for specified measure 
+%%
+
+
+
+
+
+
+
+
+
 
 
