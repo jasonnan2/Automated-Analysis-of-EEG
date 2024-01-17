@@ -130,7 +130,6 @@ classdef ScalpAnalysis < DataAnalysis
                                     CI(:,1) = ts(2)*sem; %upperCI
                                     CI(:,2) = ts(1)*sem; %lowerCI
                                     
-                                    
                                     if strcmp(errorType,'sem')
                                         eb = shadedErrorBar(obj.info.timeAxis(timeIdx(1):timeIdx(2)),data(:,n),[sem,-sem], color_list{n},1);
                                     elseif strcmp(errorType,'95CI')
@@ -204,15 +203,17 @@ classdef ScalpAnalysis < DataAnalysis
                                 elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
                                 data=[];sem=[];
                                 hold on
+                                % Get all the group data
                                 for n=1:N
                                     subdata = squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3));
                                     data(n) = nanmean(subdata);
                                     sem(n) = std(subdata)/sqrt(length(subdata));
                                 end
-                                obj.plotErrBar(data,sem);
+                                obj.plotErrBar(data,sem); % plot actual bars
+                                
+                                % getting significance bars
                                 [ngroups, nbars] = size(data);
                                 groupwidth = min(0.8, nbars/(nbars + 1.5));
-
                                 for comb = 1:size(combinations, 1)
                                     group1=obj.info.groupNames{combinations(comb, 1)};
                                     group2=obj.info.groupNames{combinations(comb, 2)};
@@ -226,6 +227,7 @@ classdef ScalpAnalysis < DataAnalysis
                                     groupingKey = mat2cell(A, ones(1, size(A, 1)), size(A, 2));
                                     sigstar(groupingKey,pvals(comb,:))
                                 end
+                                
                                 hold off
                                 xlabel(chan)
                                 xticks([])

@@ -8,9 +8,9 @@ addpath('scripts/DataAnalysis')
 addpath('A:\eeglab_OldLSL_DataAna04072023')
 eeglab
 %% Loading in data and definitions
-%dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_allgroups_amp_rmv.mat';
+dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_allgroups_amp_rmv.mat';
 %dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_combinedGroup_amp_rmv.mat';
-dataPath='A:\ClimateLD\analysis_results\formattedData\ClimateLD_traumaGroup_amp_rmv.mat';
+%dataPath='A:\ClimateLD\analysis_results\formattedData\ClimateLD_traumaGroup_amp_rmv.mat';
 load(dataPath)
 % Defining time in mS for baseline correction
 baselineTime=[-250 -50];

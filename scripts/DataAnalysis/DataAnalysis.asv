@@ -47,9 +47,9 @@ classdef DataAnalysis
             for v = 1:numel(fieldNames)
                 % Get the field data
                 fieldData = data.(fieldNames{v});
-                % Find missing data in the field data, treats all 0 as
-                % missing data too
-                missingidx = find(isnan(squeeze(sum(sum(sum(fieldData, 1), 2), 3))) | squeeze(sum(sum(sum(abs(fieldData), 1), 2), 3))==0);
+                % Find missing data in the field data
+                missingidx = find(isnan(squeeze(sum(sum(sum(fieldData, 1), 2), 3))) | squeeze(sum(sum(sum(fieldData, 1), 2), 3)))==0));
+                
                 % Remove missing data from the field data
                 fieldData(:,:,:,missingidx) = [];
                 % Assign the cleaned field data back to the data structure
