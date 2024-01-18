@@ -135,7 +135,13 @@ classdef DataAnalysis
             results = fnames{contains(fnames,'Results')};
             N=numel(fieldnames(obj.DATA));
             timeNames = fieldnames(obj.info.timeRange);
-            sigChans=obj.(results).(char(fieldnames(obj.(results))));
+            
+            if isfield(obj.(results),'sigElectrodes')
+                sigChans=obj.(results).sigElectrodes;
+            elseif isfield(obj.(results),'sigROIs')
+                sigChans=obj.(results).sigROIs;
+            end
+
             varNames=fieldnames(sigChans);
             times2plot = fieldnames(obj.info.timeRange);
             for p=1:length(varNames)
@@ -175,9 +181,41 @@ classdef DataAnalysis
                 end
             end
         end
-        
-        
-       
+        function obj=NeurBehMdl(obj,behTbl,keyColumnName,baseModel)
+            % behTbl | table with behavior/redcap data which you want to correlate
+            % with neural data. Subject names must be included and in the exact same
+            % format as the subList in neural data
+            % keyColumnName | string input denoting column name for subjectID
+            % baseModel | model definition for fitlm, neural data will be appened on 
+            %            ex: basemodel='target ~ var1+' ->  basemodel='target ~ +var1+neural'
+            %            ex: basemodel='target ~ var1*' ->  basemodel='target ~ var1*neural'
+            fnames = fieldnames(obj);
+            results = fnames{contains(fnames,'Results')};
+            timeNames = fieldnames(obj.info.timeRange);
+            for p=1:length(obj.info.variables)
+                property = obj.info.variables{p};
+                sigStruct=obj.(results).sigValues.(property);
+                timeNames=fieldnames(sigStruct);
+                NBtbl=[];
+                for t=1:length(timeNames)
+                    neuralTbl = sigStruct.(timeNames{t});
+                    neuralTbl.Properties.VariableNames = strrep(neuralTbl.Properties.VariableNames, ' ', ''); % removes any spaces
+                    varNames = setdiff(neuralTbl.Properties.VariableNames,{'subID','group'});
+                    % last cleaning up of subject names
+                    neuralTbl.subID=lower(neuralTbl.subID);
+                    behTbl.(keyColumnName)=lower(behTbl.(keyColumnName));
+                    neuralTbl.subID = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), neuralTbl.subID, 'UniformOutput', false);
+                    % Join tables
+                    tbldata = innerjoin(neuralTbl, behTbl, 'LeftKeys', 'subID', 'RightKeys', keyColumnName);
+                    if height(tbldata)~=height(neuralTbl)
+                        warning('New Table is missing some subjects, please make sure behTbl has all the subejcts present')
+                    end
+                    obj.(results).sigValues.(property).(timeNames{t}) = tbldata;
+                    NBtbl =[ NBtbl;obj.calNeurBehMdl(baseModel,tbldata,varNames)];
+                end
+                obj.(results).neuralBehMdl.(makeValidFieldName(baseModel+'neural'))= NBtbl;
+            end
+        end
         %--------------END OF CLASS METHODS-----------------------%
     end
     
@@ -209,10 +247,9 @@ classdef DataAnalysis
         end
 
         % Function to calculate which electrodes are significant btw two groups
-        function pvals=calGroupSig(s1,s2)
+        function pvals=calGroupSig(s1,s2,experimentalDesign)
             % s1 and s2 are data matrices size C channels x N subjects
-            % key is a two element cell array with markers for non-sig and sig
-            % new_chan is the chan_locs
+            % experimentalDesign is string for 'paired' or 'twoSample'
             % Perform t-tests
 
             s1=squeeze(s1);
@@ -227,9 +264,9 @@ classdef DataAnalysis
             
             for chan = 1:size(s1,1)
                 % Get non-NaN indices
-                if strcmp(obj.info.experimentalDesign='paired')
+                if strcmp(experimentalDesign,'paired')
                     [~,pvals(chan)] = ttest(s1(chan,:), s2(chan,:));
-                elseif strcmp(obj.info.experimentalDesign='twoSample')
+                elseif strcmp(experimentalDesign,'twoSample')
                     [~,pvals(chan)] = ttest2(s1(chan,:), s2(chan,:));
                 end
                 if isnan(pvals(chan))
@@ -260,6 +297,29 @@ classdef DataAnalysis
                 x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
                 errorbar(x, data(:,i), sem(:,i), 'k', 'linestyle', 'none');
             end
+        end
+
+        function neural_beh_tbl=calNeurBehMdl(baseModel,tbldata,varNames)
+            % Returns robust fitlm
+            % baseModel | model definition for fitlm, neural data will be appened on 
+            %            ex: basemodel='target ~ var1+' ->  basemodel='target ~ +var1+neural'
+            %            ex: basemodel='target ~ var1*' ->  basemodel='target ~ var1*neural'
+            % tbldata | data for fitlm, can be found after running calSigTbl
+            %           must include all variables in baseModel
+            % varNames | neural data names from tbldata
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Output | table with p values only
+            parts = strsplit(varNames{1},'_');
+            neural_beh_tbl=table();
+            pvals=[];
+            for i=1:length(varNames)
+                modelDef =  baseModel+varNames{i};
+                model = fitlm(tbldata,modelDef,'RobustOpts','on'); 
+                pvals(i) = model.Coefficients.pValue(2); % Check here to make sure its always the second
+            end
+            neural_beh_tbl.(baseModel)=varNames';
+            neural_beh_tbl.p=pvals';
+            neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
         end
         %--------------END OF STATIC METHODS-----------------------%
     end 

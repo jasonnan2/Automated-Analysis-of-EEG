@@ -12,14 +12,24 @@ eeglab
 %dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_combinedGroup_amp_rmv.mat';
 %dataPath='A:\ClimateLD\analysis_results\formattedData\ClimateLD_traumaGroup_amp_rmv.mat';
 dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_combinedGroup_exRareG_amp_rmv.mat';
-
 load(dataPath)
+CLIMATELD.info.experimentalDesign='twoSample';
+
+% Formatting behavior table for fitlm 
+baseModel="ex_WS_RareG ~ 1 + group + age +";
+tbl=readtable("A:\ClimateLD\ClimateStudy_LD_Beh2.xlsx",'sheet','All');
+behTbl = tbl(:, {'Subject','age','ex_WS_RareG'});
+behTbl.Subject = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), behTbl.Subject, 'UniformOutput', false);
+behTbl.Subject = cellfun(@(x) replace(x, ' ',''), behTbl.Subject, 'UniformOutput', false);
+
 % Defining time in mS for baseline correction
 baselineTime=[-250 -50];
 % Defining time ranges of interest
-timeRange.choice=[0 500];
-timeRange.imReward=[500 1000];
-timeRange.cumReward=[1000 1500];
+% timeRange.choice=[0 500];
+% timeRange.imReward=[500 1000];
+% timeRange.cumReward=[1000 1500];
+timeRange.all=[0 1500];
+
 % defining network
 fpn=[5 6 55 66 59 60];netwrk(1).name='FPN';netwrk(1).roi=fpn;
 con=[3 4 19 20 37 38 39 40 41 42 57 58 67 68];netwrk(2).name='CON';netwrk(2).roi=con;
@@ -38,25 +48,12 @@ scalpObject = scalpObject.standardPipeline(); % standard processing pipeline, 5S
 %scalpObject = scalpObject.applyFunc(func);
 vars2plot={'exRareg'};
 scalpObject = scalpObject.plotScalpmap(vars2plot);% scalp topo plots for specified measure
-scalpObject = scalpObject.calSigTbl();
-
-%% formatting table for scalp model
-
-tbl=readtable("A:\ClimateLD\ClimateStudy_LD_Beh2.xlsx",'sheet','All');
-tbl_subset = tbl(:, {'Subject','age','ex_WS_RareG'});
-neuralTbl = scalpObject.scalpResults.sigValues.exRareg.cumReward;
-varNames = setdiff(tbldata.Properties.VariableNames,{'subID','group'});
-neuralTbl.subID=lower(neuralTbl.subID);
-tbl_subset.Subject=lower(tbl_subset.Subject);
-% Assuming 'cellArray' is your cell array
-tbl_subset.Subject = cellfun(@(x) replace(x, ' ',''), tbl_subset.Subject, 'UniformOutput', false);
-neuralTbl.subID = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), neuralTbl.subID, 'UniformOutput', false);
-% Join tables
-tbldata = innerjoin(neuralTbl, tbl_subset, 'LeftKeys', 'subID', 'RightKeys', 'Subject');
-
-%%
-baseModel="ex_WS_RareG ~ 1 + group + age +";
-calNeurBehMdl(baseModel,tbldata,varNames)
+scalpObject = scalpObject.calSigTbl(); % creating table of significant neural attributes
+fdr(scalpObject.scalpResults.sigElectrodesP.exRareg.all.alpha)
+% behavior and neural analysis
+baseModel="ex_WS_RareG ~ 1  + age+ group+ "; keyColumnName='Subject';
+scalpObject=scalpObject.NeurBehMdl(behTbl,keyColumnName,baseModel)
+scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_1_age_group_neural
 %%
 freq2plot={'alpha','broadband'};
 times2plot={'imReward','cumReward','choice'};
@@ -76,47 +73,34 @@ sourceObject.plotNetwork(netwrk,vars2plot); % grouped network bar plots for spec
 combinations=[1,2];
 sourceObject = sourceObject.plotBrainmap(vars2plot,combinations); % full roi plot for specified measure
 sourceObject = sourceObject.calSigTbl();
+baseModel="ex_WS_RareG ~ 1 + group + age +"; keyColumnName='Subject';
+sourceObject=sourceObject.NeurBehMdl(behTbl,keyColumnName,baseModel)
+%fdr(sourceObject.sourceResults.sigROIsP.exRareg.all.alpha(:,end))
+sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_1_group_age_neural
 
-%% source neural beh model
+%% Custom Neural Beh models
+tbldata = scalpObject.scalpResults.sigValues.exRareg.all; % get table data
+cols = contains(tbldata.Properties.VariableNames, 'alpha') & contains(tbldata.Properties.VariableNames, 'F');
+tbldata.exRareg_all_alpha_frontal = mean(tbldata{:, cols},2);
 
-tbl=readtable("A:\ClimateLD\ClimateStudy_LD_Beh2.xlsx",'sheet','All');
-tbl_subset = tbl(:, {'Subject','age','ex_WS_RareG'});
-neuralTbl = sourceObject.sourceResults.sigValues.exRareg.choice;
-% Assuming 'tbl' is your table
-neuralTbl.Properties.VariableNames = strrep(neuralTbl.Properties.VariableNames, ' ', '');
-
-varNames = setdiff(neuralTbl.Properties.VariableNames,{'subID','group'});
-neuralTbl.subID=lower(neuralTbl.subID);
-tbl_subset.Subject=lower(tbl_subset.Subject);
-% Assuming 'cellArray' is your cell array
-tbl_subset.Subject = cellfun(@(x) replace(x, ' ',''), tbl_subset.Subject, 'UniformOutput', false);
-neuralTbl.subID = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), neuralTbl.subID, 'UniformOutput', false);
-% Join tables
-tbldata = innerjoin(neuralTbl, tbl_subset, 'LeftKeys', 'subID', 'RightKeys', 'Subject');
-
+cols = contains(tbldata.Properties.VariableNames, 'alpha') & contains(tbldata.Properties.VariableNames, 'P');
+tbldata.exRareg_all_alpha_frontal = mean(tbldata{:, cols},2)
 %%
-baseModel="ex_WS_RareG ~ 1 + group + age +";
-calNeurBehMdl(baseModel,tbldata,varNames)
+varNames = setdiff(tbldata.Properties.VariableNames,{'age','ex_WS_RareG','subID','group'});
 
 
 
 %%
-function neural_beh_tbl=calNeurBehMdl(baseModel,tbldata,varNames)
 neural_beh_tbl=table();
 pvals=[];
 for i=1:length(varNames)
-modelDef =  baseModel+varNames{i};
-model = fitlm(tbldata,modelDef,'RobustOpts','on'); 
-pvals(i) = model.Coefficients.pValue(2);
+    modelDef =  baseModel+varNames{i};
+    model = fitlm(tbldata,modelDef,'RobustOpts','on'); 
+    pvals(i) = model.Coefficients.pValue(2); % Check here to make sure its always the second
 end
-neural_beh_tbl.cumReward=varNames';
+neural_beh_tbl.(baseModel)=varNames';
 neural_beh_tbl.p=pvals';
 neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
-
-end
-
-
-
 
 
 

@@ -1,3 +1,5 @@
+
+
 classdef ScalpAnalysis < DataAnalysis
     properties
         DATA
@@ -32,11 +34,13 @@ classdef ScalpAnalysis < DataAnalysis
                             freq=obj.info.freq_list{f};
 
                             figCount = figCount + 1;
-                            subplot(3,4,figCount)
+                            subplot(length(timeNames),length(obj.info.freq_list),figCount)
 
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
-                            pvals=obj.calGroupSig(s1,s2); % get 1x n channel of p values 
+                            pvals=obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values
+                            obj.scalpResults.sigElectrodesP.(property).(timeNames{t}).(obj.info.freq_list{f})=pvals;
+
                             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
 
                             chans2add = chanlabels(pvals<0.05); % significant channels to add to list
@@ -44,7 +48,6 @@ classdef ScalpAnalysis < DataAnalysis
                             % Check if the field already exists
                             if isfield(obj.scalpResults, 'sigElectrodes') && isfield(obj.scalpResults.sigElectrodes, property) && ...
                                 isfield(obj.scalpResults.sigElectrodes.(property), timeNames{t}) && isfield(obj.scalpResults.sigElectrodes.(property).(timeNames{t}), obj.info.freq_list{f})
-
                                 % Get the existing cell array
                                 existingArray = obj.scalpResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f});
                                 % Check if the new letter is different from the existing ones
@@ -220,7 +223,7 @@ classdef ScalpAnalysis < DataAnalysis
                                     s1=[];s2=[];
                                     s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName,elecIdxs),3));
                                     s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName,elecIdxs),3));
-                                    pvals(comb,:)=obj.calGroupSig(s1,s2);
+                                    pvals(comb,:)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign);
                                     group1Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 1)-1) * groupwidth / (2*nbars);
                                     group2Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 2)-1) * groupwidth / (2*nbars);
                                     A=[group1Location;group2Location]';
@@ -252,12 +255,9 @@ end
 
 %% Plotting scalpmap with significant electrodes
 function new_chan = plotSigTopo(s1,s2,chanlocs,pvals, key)
-
     %[~,p]=fdr(reshape(p,[1,numel(p)]),0.05);
     mask=key((pvals<0.05)+1);
     [chanlocs.labels]=mask{:};
-    
-    
     % s1 and s2 are chan x sub size
     plotdata=nanmean(s2,2)-nanmean(s1,2);
     topoplot(plotdata,chanlocs,'headrad','rim','electrodes','labels','efontsize' ,16); 

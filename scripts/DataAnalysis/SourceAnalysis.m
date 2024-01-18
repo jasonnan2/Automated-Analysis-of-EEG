@@ -50,7 +50,7 @@ classdef SourceAnalysis < DataAnalysis
                                 s2(i,:) = squeeze(nanmean(nanmean(obj.getGroupData(group2,property,freq,timeName,netwrk(i).roi),2),3));
                             end
                             %[~,pvals(comb,:)] = ttest2(s1, s2);
-                            pvals(comb,:)=obj.calGroupSig(s1,s2);
+                            pvals(comb,:)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign);
 
                             group1Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 1)-1) * groupwidth / (2*nbars);
                             group2Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 2)-1) * groupwidth / (2*nbars);
@@ -99,7 +99,8 @@ classdef SourceAnalysis < DataAnalysis
                             % average in time dimension
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
-                            pvals(:,f)=obj.calGroupSig(s1,s2); % get 1x n channel of p values 
+                            pvals(:,f)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values 
+                            obj.sourceResults.sigROIsP.(property).(timeNames{t}).(obj.info.freq_list{f})=pvals(:,f);
                             plotdata(:,f)=nanmean(s2,2)-nanmean(s1,2); % average across subjects and subtract
                             roi2add = obj.info.roi(pvals(:,f)<=0.05);
                             %%% adding ROI's to results
