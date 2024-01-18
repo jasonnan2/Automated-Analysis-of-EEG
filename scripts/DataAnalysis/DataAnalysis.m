@@ -55,6 +55,7 @@ classdef DataAnalysis
                 % Assign the cleaned field data back to the data structure
                 data.(fieldNames{v}) = fieldData;
                 data.missingSubs{v}=[fieldNames{v} reshape(data.subList(missingidx), 1, [])];
+                data.subList(missingidx)=[];
             end
         end
         
@@ -128,6 +129,54 @@ classdef DataAnalysis
                 end
             end
         end
+        
+        function obj = calSigTbl(obj)
+            fnames = fieldnames(obj);
+            results = fnames{contains(fnames,'Results')};
+            N=numel(fieldnames(obj.DATA));
+            timeNames = fieldnames(obj.info.timeRange);
+            sigChans=obj.(results).(char(fieldnames(obj.(results))));
+            varNames=fieldnames(sigChans);
+            times2plot = fieldnames(obj.info.timeRange);
+            for p=1:length(varNames)
+                property=varNames{p};
+                time_list = intersect(fieldnames(sigChans.(property)),times2plot);
+
+                for t=1:length(time_list)
+
+                    timeName=time_list{t};
+                    sig=sigChans.(property).(timeName);
+                    freq_list=fieldnames(sig);
+                    % get longest electrode map
+                    labels=[]; tbldata=[];
+                    for f=1:length(freq_list)
+                        for c=1:length(sig.(freq_list{f}))
+                            freq=freq_list{f};
+                            chan=sig.(freq){c};
+                            
+                            
+                            elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
+                            if isempty(elecIdxs)
+                                elecIdxs = find(strcmp(obj.info.roi,chan ));
+                            end
+                            data=[];allsubs=[];groupname=[];
+                            for n=1:N
+                               subdata = [squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3))];
+                               data =[data; subdata];
+                               allsubs=[allsubs,obj.DATA.(obj.info.groupNames{n}).subList];
+                               groupname=[groupname repmat(obj.info.groupNames(n),1,length(subdata))];
+                            end
+                            tbldata = [tbldata data];
+                            labels=[labels strcat(property,"_",timeName,"_",freq,"_",chan)];
+                        end
+                    end
+                    tbl = [table(allsubs', groupname', 'VariableNames', {'subID', 'group'}) array2table(tbldata, 'VariableNames', labels)];
+                    obj.(results).sigValues.(property).(timeName)=tbl;
+                end
+            end
+        end
+        
+        
        
         %--------------END OF CLASS METHODS-----------------------%
     end
@@ -176,10 +225,13 @@ classdef DataAnalysis
                 s2=s2';
             end
             
-            
             for chan = 1:size(s1,1)
                 % Get non-NaN indices
-                [~,pvals(chan)] = ttest2(s1(chan,:), s2(chan,:));
+                if strcmp(obj.info.experimentalDesign='paired')
+                    [~,pvals(chan)] = ttest(s1(chan,:), s2(chan,:));
+                elseif strcmp(obj.info.experimentalDesign='twoSample')
+                    [~,pvals(chan)] = ttest2(s1(chan,:), s2(chan,:));
+                end
                 if isnan(pvals(chan))
                     disp('asdfawrsasdbaweasbas')
                     waitforbuttonpress

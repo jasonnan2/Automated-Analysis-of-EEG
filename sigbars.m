@@ -1,6 +1,5 @@
 
 
-
 for n=1:N
     subdata = squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3));
     data(n) = nanmean(subdata);
@@ -24,3 +23,7 @@ for comb = 1:size(combinations, 1)
     groupingKey = mat2cell(A, ones(1, size(A, 1)), size(A, 2));
     sigstar(groupingKey,pvals(comb,:))
 end
+
+
+
+

@@ -44,8 +44,8 @@ scalpObject = scalpObject.calSigTbl();
 
 tbl=readtable("A:\ClimateLD\ClimateStudy_LD_Beh2.xlsx",'sheet','All');
 tbl_subset = tbl(:, {'Subject','age','ex_WS_RareG'});
-neuralTbl = scalpObject.scalpResults.sigValues.exRareg.imReward;
-varNames = setdiff(neuralTbl.Properties.VariableNames,{'subID','group'});
+neuralTbl = scalpObject.scalpResults.sigValues.exRareg.cumReward;
+varNames = setdiff(tbldata.Properties.VariableNames,{'subID','group'});
 neuralTbl.subID=lower(neuralTbl.subID);
 tbl_subset.Subject=lower(tbl_subset.Subject);
 % Assuming 'cellArray' is your cell array
@@ -54,10 +54,9 @@ neuralTbl.subID = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), neuralTbl.s
 % Join tables
 tbldata = innerjoin(neuralTbl, tbl_subset, 'LeftKeys', 'subID', 'RightKeys', 'Subject');
 
+%%
 baseModel="ex_WS_RareG ~ 1 + group + age +";
 calNeurBehMdl(baseModel,tbldata,varNames)
-
-
 %%
 freq2plot={'alpha','broadband'};
 times2plot={'imReward','cumReward','choice'};
@@ -82,7 +81,7 @@ sourceObject = sourceObject.calSigTbl();
 
 tbl=readtable("A:\ClimateLD\ClimateStudy_LD_Beh2.xlsx",'sheet','All');
 tbl_subset = tbl(:, {'Subject','age','ex_WS_RareG'});
-neuralTbl = sourceObject.sourceResults.sigValues.exRareg.cumReward;
+neuralTbl = sourceObject.sourceResults.sigValues.exRareg.choice;
 % Assuming 'tbl' is your table
 neuralTbl.Properties.VariableNames = strrep(neuralTbl.Properties.VariableNames, ' ', '');
 
@@ -95,6 +94,7 @@ neuralTbl.subID = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), neuralTbl.s
 % Join tables
 tbldata = innerjoin(neuralTbl, tbl_subset, 'LeftKeys', 'subID', 'RightKeys', 'Subject');
 
+%%
 baseModel="ex_WS_RareG ~ 1 + group + age +";
 calNeurBehMdl(baseModel,tbldata,varNames)
 
@@ -102,7 +102,6 @@ calNeurBehMdl(baseModel,tbldata,varNames)
 
 %%
 function neural_beh_tbl=calNeurBehMdl(baseModel,tbldata,varNames)
-parts = strsplit(varNames{1},'_');
 neural_beh_tbl=table();
 pvals=[];
 for i=1:length(varNames)
@@ -110,7 +109,7 @@ modelDef =  baseModel+varNames{i};
 model = fitlm(tbldata,modelDef,'RobustOpts','on'); 
 pvals(i) = model.Coefficients.pValue(2);
 end
-neural_beh_tbl.(parts{2})=varNames';
+neural_beh_tbl.cumReward=varNames';
 neural_beh_tbl.p=pvals';
 neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
 
