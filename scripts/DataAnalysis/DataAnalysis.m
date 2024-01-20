@@ -133,6 +133,7 @@ classdef DataAnalysis
         function obj = calSigTbl(obj)
             fnames = fieldnames(obj);
             results = fnames{contains(fnames,'Results')};
+            obj.(results).neuralBehMdl = struct();
             N=numel(fieldnames(obj.DATA));
             timeNames = fieldnames(obj.info.timeRange);
             
@@ -159,8 +160,6 @@ classdef DataAnalysis
                         for c=1:length(sig.(freq_list{f}))
                             freq=freq_list{f};
                             chan=sig.(freq){c};
-                            
-                            
                             elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
                             if isempty(elecIdxs)
                                 elecIdxs = find(strcmp(obj.info.roi,chan ));
@@ -181,7 +180,7 @@ classdef DataAnalysis
                 end
             end
         end
-        function obj=NeurBehMdl(obj,behTbl,keyColumnName,baseModel)
+        function obj=NeurBehMdl(obj,behTbl,keyColumnName,baseModel,modelname)
             % behTbl | table with behavior/redcap data which you want to correlate
             % with neural data. Subject names must be included and in the exact same
             % format as the subList in neural data
@@ -189,6 +188,9 @@ classdef DataAnalysis
             % baseModel | model definition for fitlm, neural data will be appened on 
             %            ex: basemodel='target ~ var1+' ->  basemodel='target ~ +var1+neural'
             %            ex: basemodel='target ~ var1*' ->  basemodel='target ~ var1*neural'
+            if nargin<5
+                modelname=makeValidFieldName(baseModel+'neural');
+            end
             fnames = fieldnames(obj);
             results = fnames{contains(fnames,'Results')};
             timeNames = fieldnames(obj.info.timeRange);
@@ -200,20 +202,27 @@ classdef DataAnalysis
                 for t=1:length(timeNames)
                     neuralTbl = sigStruct.(timeNames{t});
                     neuralTbl.Properties.VariableNames = strrep(neuralTbl.Properties.VariableNames, ' ', ''); % removes any spaces
-                    varNames = setdiff(neuralTbl.Properties.VariableNames,{'subID','group'});
+                    varNames = setdiff(neuralTbl.Properties.VariableNames,{'subID','group', behTbl.Properties.VariableNames{:}});
                     % last cleaning up of subject names
                     neuralTbl.subID=lower(neuralTbl.subID);
                     behTbl.(keyColumnName)=lower(behTbl.(keyColumnName));
                     neuralTbl.subID = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), neuralTbl.subID, 'UniformOutput', false);
                     % Join tables
-                    tbldata = innerjoin(neuralTbl, behTbl, 'LeftKeys', 'subID', 'RightKeys', keyColumnName);
+                    tbldata = innerjoin(neuralTbl, behTbl, 'LeftKeys', 'subID', 'RightKeys', keyColumnName,'RightVariables', setdiff(behTbl.Properties.VariableNames,neuralTbl.Properties.VariableNames));
                     if height(tbldata)~=height(neuralTbl)
                         warning('New Table is missing some subjects, please make sure behTbl has all the subejcts present')
                     end
                     obj.(results).sigValues.(property).(timeNames{t}) = tbldata;
                     NBtbl =[ NBtbl;obj.calNeurBehMdl(baseModel,tbldata,varNames)];
                 end
-                obj.(results).neuralBehMdl.(makeValidFieldName(baseModel+'neural'))= NBtbl;
+
+                count=0;
+                while isfield(obj.(results).neuralBehMdl,modelname)
+                    modelname = modelname+string(count);
+                    count=count+1;
+                end
+
+                obj.(results).neuralBehMdl.(modelname)= NBtbl;
             end
         end
         %--------------END OF CLASS METHODS-----------------------%
@@ -315,11 +324,14 @@ classdef DataAnalysis
             for i=1:length(varNames)
                 modelDef =  baseModel+varNames{i};
                 model = fitlm(tbldata,modelDef,'RobustOpts','on'); 
-                pvals(i) = model.Coefficients.pValue(2); % Check here to make sure its always the second
+                models{i}=model;
+                neuralidx = find(strcmp(varNames{i},model.CoefficientNames));
+                pvals(i) = model.Coefficients.pValue(neuralidx); % Check here to make sure its always the second
             end
             neural_beh_tbl.(baseModel)=varNames';
-            neural_beh_tbl.p=pvals';
-            neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
+            %neural_beh_tbl.neuralP=pvals';
+            neural_beh_tbl.model=models';
+            %neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
         end
         %--------------END OF STATIC METHODS-----------------------%
     end 

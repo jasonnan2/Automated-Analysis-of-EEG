@@ -25,10 +25,11 @@ behTbl.Subject = cellfun(@(x) replace(x, ' ',''), behTbl.Subject, 'UniformOutput
 % Defining time in mS for baseline correction
 baselineTime=[-250 -50];
 % Defining time ranges of interest
-% timeRange.choice=[0 500];
-% timeRange.imReward=[500 1000];
-% timeRange.cumReward=[1000 1500];
-timeRange.all=[0 1500];
+timeRange=struct();
+timeRange.choice=[0 500];
+timeRange.imReward=[500 1000];
+timeRange.cumReward=[1000 1500];
+%timeRange.all=[0 1500];
 
 % defining network
 fpn=[5 6 55 66 59 60];netwrk(1).name='FPN';netwrk(1).roi=fpn;
@@ -49,11 +50,27 @@ scalpObject = scalpObject.standardPipeline(); % standard processing pipeline, 5S
 vars2plot={'exRareg'};
 scalpObject = scalpObject.plotScalpmap(vars2plot);% scalp topo plots for specified measure
 scalpObject = scalpObject.calSigTbl(); % creating table of significant neural attributes
+
+%%% adding in two more models
+time_list=fieldnames(scalpObject.info.timeRange);
+for t=1:length(time_list)
+    tbldata = scalpObject.scalpResults.sigValues.exRareg.(time_list{t}); % get table data
+    %varNames = setdiff(tbldata.Properties.VariableNames,{'age','ex_WS_RareG','subID','group'});
+    cols = contains(tbldata.Properties.VariableNames, 'alpha') & contains(tbldata.Properties.VariableNames, 'F');
+    tbldata.("exRareg_"+time_list{t}+"_alpha_frontal") = mean(tbldata{:, cols},2);
+    cols = contains(tbldata.Properties.VariableNames, 'alpha') & contains(tbldata.Properties.VariableNames, 'P');
+    tbldata.("exRareg_"+time_list{t}+"_alpha_parietal") = mean(tbldata{:, cols},2);
+    scalpObject.scalpResults.sigValues.exRareg.(time_list{t})=tbldata;
+end
 %fdr(scalpObject.scalpResults.sigElectrodesP.exRareg.all.alpha)
 % behavior and neural analysis
-baseModel="ex_WS_RareG ~ 1  + age+ group+ "; keyColumnName='Subject';
-scalpObject=scalpObject.NeurBehMdl(behTbl,keyColumnName,baseModel)
-scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_1_age_group_neural
+baseModel="ex_WS_RareG ~ 1  + age+ group+"; keyColumnName='Subject';
+scalpObject=scalpObject.NeurBehMdl(behTbl,keyColumnName,baseModel,'ex_WS_RareG_linear');
+baseModel="ex_WS_RareG ~ 1  + age+ group*"; keyColumnName='Subject';
+scalpObject=scalpObject.NeurBehMdl(behTbl,keyColumnName,baseModel,'ex_WS_RareG_combo');
+
+scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_linear = extractp(scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_linear,'',0);
+scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_combo = extractp(scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_combo,"group_Control:",0);
 %%
 freq2plot={'alpha','broadband'};
 times2plot={'imReward','cumReward','choice'};
@@ -74,35 +91,56 @@ combinations=[1,2];
 sourceObject = sourceObject.plotBrainmap(vars2plot,combinations); % full roi plot for specified measure
 sourceObject = sourceObject.calSigTbl();
 baseModel="ex_WS_RareG ~ 1 + age +group+"; keyColumnName='Subject';
-sourceObject=sourceObject.NeurBehMdl(behTbl,keyColumnName,baseModel)
+sourceObject=sourceObject.NeurBehMdl(behTbl,keyColumnName,baseModel,'ex_WS_RareG_linear')
+baseModel="ex_WS_RareG ~ 1 + age +group*"; keyColumnName='Subject';
+sourceObject=sourceObject.NeurBehMdl(behTbl,keyColumnName,baseModel,'ex_WS_RareG_combo')
 %fdr(sourceObject.sourceResults.sigROIsP.exRareg.all.alpha(:,end))
-sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_1_age_group_neural
+sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_linear = extractp(sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_linear,'',0)
+sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_combo,"group_Control:",0)
+
+%%
+
+sourceChoicetbl = sourceObject.sourceResults.sigValues.exRareg.choice;
+scalpChoicetbl = scalpObject.scalpResults.sigValues.exRareg.choice;
+
+%%
+
+figure
+scatterplot(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 %% Custom Neural Beh models
-tbldata = scalpObject.scalpResults.sigValues.exRareg.all; % get table data
-%varNames = setdiff(tbldata.Properties.VariableNames,{'age','ex_WS_RareG','subID','group'});
-cols = contains(tbldata.Properties.VariableNames, 'alpha') & contains(tbldata.Properties.VariableNames, 'F');
-tbldata.exRareg_all_alpha_frontal = mean(tbldata{:, cols},2);
-cols = contains(tbldata.Properties.VariableNames, 'alpha') & contains(tbldata.Properties.VariableNames, 'P');
-tbldata.exRareg_all_alpha_parietal = mean(tbldata{:, cols},2);
-
-varNames={'exRareg_all_alpha_frontal','exRareg_all_alpha_parietal'};
-baseModel="ex_WS_RareG ~ 1 +  age +group*"; keyColumnName='Subject';
-
-neural_beh_tbl=table();
-pvals=[];
-for i=1:length(varNames)
-    modelDef =  baseModel+varNames{i};
-    model = fitlm(tbldata,modelDef,'RobustOpts','on')
-    pvals(i) = model.Coefficients.pValue(2); % Check here to make sure its always the second
-end
-neural_beh_tbl.(baseModel)=varNames';
-neural_beh_tbl.p=pvals';
-neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
-
-
-
-
-
-
-
+% 
+% varNames={'exRareg_all_alpha_frontal','exRareg_all_alpha_parietal'};
+% baseModel="ex_WS_RareG ~ 1 +  age +group+"; keyColumnName='Subject';
+% 
+% neural_beh_tbl=table();
+% pvals=[];
+% for i=1:length(varNames)
+%     modelDef =  baseModel+varNames{i};
+%     model = fitlm(tbldata,modelDef,'RobustOpts','on')
+%     pvals(i) = model.Coefficients.pValue(end); % Check here to make sure its always the second
+% end
+% neural_beh_tbl.(baseModel)=varNames';
+% neural_beh_tbl.p=pvals';
+% neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
+% 
