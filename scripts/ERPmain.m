@@ -1,4 +1,4 @@
-%% Climate luckydoor Main analysis - with subclasses
+%%  Main ERP and Source analysis 
 % Jason Nan
 % 12/19/2023 - 
 clear all;close all;clc
@@ -51,12 +51,14 @@ scalpObject = scalpObject.ScalpAnalysis(); % calcualtes all significant electrod
 %scalpObject = scalpObject.applyFunc(func);
 scalpObject = scalpObject.calSigTbl(); % creating table of significant neural attributes
 
-vars2plot={'EVgain'};
-freq2plot={'broadband'};
-times2plot={'choice'};
+%% Scalp Plotting
+close all
+vars2plot={'EVgain'}; freq2plot={'broadband'}; times2plot={'choice'}; errorType='sem';
+scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,3]);
+scalpObject.plotERPs('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
+scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
 
-scalpObject = scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,3]);% scalp topo plots for specified measure
-
+%% Scalp Behavior Models
 %%% adding in two more models into sigValues table to run NeurBehMdls
 time_list=fieldnames(scalpObject.info.timeRange);
 for t=1:length(time_list)
@@ -78,13 +80,8 @@ scalpObject=scalpObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'ex_
 
 scalpObject.neuralBehMdl.ex_WS_RareG_linear = extractp(scalpObject.neuralBehMdl.ex_WS_RareG_linear_EVgain,'',1);
 scalpObject.neuralBehMdl.ex_WS_RareG_combo = extractp(scalpObject.neuralBehMdl.ex_WS_RareG_combo_EVgain,"group_Control:",0);
-%%
-close all
-errorType='sem';
-% Plotting significant channels from topo plots as line plots and bargraph 
-% Only selecting conditions which are specified above
-scalpObject.plotERPs('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
-scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
+
+
 %% Source Analysis
 % repeat general processing steps
 sourceObject=SourceObject(CLIMATELD.sourceData, CLIMATELD.info, baselineTime, timeRange);
@@ -93,9 +90,11 @@ sourceObject = sourceObject.standardProcessing();
 sourceObject = sourceObject.SourceAnalysis();
 sourceObject = sourceObject.calSigTbl();
 
+%% Source Plotting
 %sourceObject.plotNetwork(netwrk,vars2plot); % grouped network bar plots for specified measure
-sourceObject = sourceObject.plotBrainmap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,3]); % full roi plot for specified measure
+sourceObject.plotBrainmap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,3]); % full roi plot for specified measure
 
+%% Source Behavior Model
 neuralVar={'EVgain'};
 baseModel="ex_WS_RareG ~ 1 + age +group+"; keyColumnName='Subject';
 sourceObject=sourceObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'ex_WS_RareG_linear');
@@ -114,11 +113,6 @@ source_mdl=sourceObject.neuralBehMdl.ex_WS_RareG_linear.model{1};
 
 scalpChoicetbl = scalpObject.sigValues.exRareg.choice;
 scalp_mdl=scalpObject.neuralBehMdl.ex_WS_RareG_combo.model{1};
-
-%%
-close all
-aoctool(sourceChoicetbl.exRareg_choice_alpha_posteriorcingulateR,sourceChoicetbl.ex_WS_RareG,sourceChoicetbl.group,0.05,'pccR','ex_WS_rareG')
-aoctool(scalpChoicetbl.exRareg_choice_alpha_Pz,scalpChoicetbl.ex_WS_RareG,scalpChoicetbl.group,0.05,'Pz','ex_WS_rareG')
 
 %% Final Figures
 close all
@@ -165,3 +159,7 @@ title('scalp Pz fitlm for groups seperatly')
 % neural_beh_tbl.p=pvals';
 % neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
 % 
+% %% Analysis of covariance
+% close all
+% aoctool(sourceChoicetbl.exRareg_choice_alpha_posteriorcingulateR,sourceChoicetbl.ex_WS_RareG,sourceChoicetbl.group,0.05,'pccR','ex_WS_rareG')
+% aoctool(scalpChoicetbl.exRareg_choice_alpha_Pz,scalpChoicetbl.ex_WS_RareG,scalpChoicetbl.group,0.05,'Pz','ex_WS_rareG')

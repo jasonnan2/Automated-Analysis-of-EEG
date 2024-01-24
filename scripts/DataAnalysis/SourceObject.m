@@ -113,7 +113,7 @@ classdef SourceObject < DataAnalysis
                 end
             end
         end
-        function obj=plotBrainmap(obj,varargin)
+        function plotBrainmap(obj,varargin)
             
             %   [...] = plotBrainmap(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
             %   parameters and their values. Will only plot conditions that satisfy 

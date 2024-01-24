@@ -59,7 +59,7 @@ classdef ScalpObject < DataAnalysis
             end
         end
         
-        function obj=plotScalpMap(obj,varargin)
+        function plotScalpMap(obj,varargin)
             
             %   [...] = plotERPs(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
             %   parameters and their values. Will only plot conditions that satisfy 
