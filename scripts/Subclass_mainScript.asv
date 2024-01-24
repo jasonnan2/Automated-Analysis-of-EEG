@@ -52,10 +52,10 @@ scalpObject = scalpObject.ScalpAnalysis(); % calcualtes all significant electrod
 scalpObject = scalpObject.calSigTbl(); % creating table of significant neural attributes
 
 vars2plot={'EVgain'};
-freq2plot={'broadband'};
+freq2plot={'alpha'};
 times2plot={'choice'};
 
-scalpObject = scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,3]);% scalp topo plots for specified measure
+scalpObject = scalpObject.plotScalpMap();% scalp topo plots for specified measure
 
 %%% adding in two more models
 time_list=fieldnames(scalpObject.info.timeRange);
@@ -75,16 +75,16 @@ scalpObject=scalpObject.NeurBehMdl(behTbl,keyColumnName,baseModel,'ex_WS_RareG_l
 baseModel="ex_WS_RareG ~ 1  + age+ group*"; keyColumnName='Subject';
 scalpObject=scalpObject.NeurBehMdl(behTbl,keyColumnName,baseModel,'ex_WS_RareG_combo');
 
-scalpObject.neuralBehMdl.ex_WS_RareG_linear = extractp(scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_linear,'',0);
-scalpObject.neuralBehMdl.ex_WS_RareG_combo = extractp(scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_combo,"group_Control:",0);
+scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_linear = extractp(scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_linear,'',0);
+scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_combo = extractp(scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_combo,"group_Control:",0);
 %%
 
 close all
 errorType='sem';
 % Plotting significant channels from topo plots as line plots and bargraph 
 % Only selecting conditions which are specified above
-scalpObject.plotERPs('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
-scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
+scalpObject.plotERPs(vars2plot,freq2plot,times2plot,errorType)
+scalpObject.plotScalpBar(vars2plot,freq2plot,times2plot)
 %% brainNetwork Analysis
 % repeat general processing steps
 sourceObject=SourceAnalysis(CLIMATELD.sourceData, CLIMATELD.info, baselineTime, timeRange);
@@ -100,16 +100,16 @@ sourceObject=sourceObject.NeurBehMdl(behTbl,keyColumnName,baseModel,'ex_WS_RareG
 baseModel="ex_WS_RareG ~ 1 + age +group*"; keyColumnName='Subject';
 sourceObject=sourceObject.NeurBehMdl(behTbl,keyColumnName,baseModel,'ex_WS_RareG_combo');
 %fdr(sourceObject.sourceResults.sigROIsP.exRareg.all.alpha(:,end))
-sourceObject.neuralBehMdl.ex_WS_RareG_linear = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_linear,'',0);
-sourceObject.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_combo,"group_Control:");
-sourceObject.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_combo,"group_HappenedTo:");
+sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_linear = extractp(sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_linear,'',0);
+sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_combo,"group_Control:");
+sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_combo,"group_HappenedTo:");
 
 %% 
-sourceChoicetbl = sourceObject.sigValues.exRareg.choice;
-source_mdl=sourceObject.neuralBehMdl.ex_WS_RareG_linear.model{1};
+sourceChoicetbl = sourceObject.sourceResults.sigValues.exRareg.choice;
+source_mdl=sourceObject.sourceResults.neuralBehMdl.ex_WS_RareG_linear.model{1};
 
-scalpChoicetbl = scalpObject.sigValues.exRareg.choice;
-scalp_mdl=scalpObject.neuralBehMdl.ex_WS_RareG_combo.model{1};
+scalpChoicetbl = scalpObject.scalpResults.sigValues.exRareg.choice;
+scalp_mdl=scalpObject.scalpResults.neuralBehMdl.ex_WS_RareG_combo.model{1};
 
 %%
 close all

@@ -4,7 +4,6 @@ classdef DataAnalysis
     % Add in option to choose what pairings to run 
     properties
         info
-        neuralBehMdl
     end
     methods
         function obj = DataAnalysis(info,baselineTime, timeRange)
@@ -148,7 +147,6 @@ classdef DataAnalysis
             times2plot = fieldnames(obj.info.timeRange);
             for p=1:length(varNames)
                 property=varNames{p};
-                p_idx= find(strcmp(obj.info.variables, property));
                 time_list = intersect(fieldnames(sigChans.(property)),times2plot);
 
                 for t=1:length(time_list)
@@ -170,9 +168,11 @@ classdef DataAnalysis
                             for n=1:N
                                subdata = [squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3))];
                                data =[data; subdata];
+                               
                                subsOrig = obj.DATA.(obj.info.groupNames{n}).subList;
-                               missing = obj.DATA.(obj.info.groupNames{n}).missingSubs{p_idx}(2:end);
-                               allsubs=[allsubs,setdiff(subsOrig,missing)];
+                               obj.DATA.(obj.info.groupNames{n}).missingSubs
+                               allsubs=[allsubs,subsOrig];
+                               
                                groupname=[groupname repmat(obj.info.groupNames(n),1,length(subdata))];
                             end
                             tbldata = [tbldata data];
@@ -226,7 +226,7 @@ classdef DataAnalysis
                     count=count+1;
                 end
 
-                obj.neuralBehMdl.(modelname)= NBtbl;
+                obj.(results).neuralBehMdl.(modelname)= NBtbl;
             end
         end
         %--------------END OF CLASS METHODS-----------------------%

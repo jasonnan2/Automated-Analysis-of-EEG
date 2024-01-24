@@ -1,20 +1,23 @@
 
 
-classdef ScalpAnalysis < DataAnalysis
+classdef ScalpObject < DataAnalysis
     properties
         DATA
         scalpResults
     end
     
     methods
-        function obj = ScalpAnalysis(DATA, info, baselineTime, timeRange)
+        function obj = ScalpObject(DATA, info, baselineTime, timeRange)
             % Call superclass constructor
             obj = obj@DataAnalysis(info, baselineTime, timeRange);
             obj.DATA=DATA;
         end
         
-        function obj=plotScalpmap(obj,properties)
+        function obj=ScalpAnalysis(obj)
+            % obj=ScalpAnalysis(obj)
+            % runs all comparisons between groups in scalp space
             
+            properties=obj.info.variables;
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
             combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
@@ -58,8 +61,72 @@ classdef ScalpAnalysis < DataAnalysis
                                 obj.scalpResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f}) = chans2add;
                             end
 
-                            plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
+%                             plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
+%                             if t==1
+%                                 title(obj.info.freq_list{f})
+%                             end
+%                             if f==1
+%                                 text(-1,-.2, timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
+%                             end
+                        end
+                    end
+%                     sgtitle(property+" "+group2+"-"+group1)
+                end
+            end
+        end
+        
+        function obj=plotScalpMap(obj,varargin)
+            
+            %   [...] = plotERPs(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
+            %   parameters and their values. Will only plot conditions that satisfy 
+            %   all conditions specified. Default run will plot all combinations
+            %   Valid parameters are the following:
+            %
+            %        Parameter  Value
+            %         'vars2plot'    cell array of variables in the object
+            %                        to plot. Default is to plot all
+            %                        variables
+            %                  
+            %         'freq2plot'    cell array of frequencies in the object
+            %                        to plot. Default is to plot all
+            %                        frequencies
+            %                   
+            %         'times2plot'   cell array of time ranges in the object
+            %                        to plot. Default is to plot all
+            %                        time ranges
+            %         'combinations' 2D matrix defining which groups to run
+            %                        comparisons on.
+            %                        ex: [1,2] will do groups 1 vs 2
+            %                            [1,2;1,3] is 1 vs 2 and 1 vs 3
+            
+            N = length(scalpObject.info.groupNames);
+            pnames = {'vars2plot','freq2plot','times2plot','combinations'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2) };
+            [vars2plot,freq_list,timeNames,combinations] = parseArgs(pnames,dflts,varargin{:});
 
+            for p=1:length(vars2plot)
+                property=vars2plot{p}; % get property name
+                for comb = 1:size(combinations, 1)
+
+                    group1=obj.info.groupNames{combinations(comb, 1)};
+                    group2=obj.info.groupNames{combinations(comb, 2)};
+
+                    figure
+                    figCount=0;
+                    for t=1:length(timeNames)
+                        timeName=timeNames{t};
+                        
+                        for f=1:length(freq_list)
+                            freq=freq_list{f};
+
+                            figCount = figCount + 1;
+                            subplot(length(timeNames),length(freq_list),figCount)
+
+                            s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
+                            s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
+                            pvals=obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values
+
+                            plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
                             if t==1
                                 title(obj.info.freq_list{f})
                             end
@@ -73,30 +140,48 @@ classdef ScalpAnalysis < DataAnalysis
             end
         end
         
-        function plotERPs(obj,vars2plot,freq2plot,times2plot,errorType)
-            if nargin <5 || isempty(errorType)
-                errorType='none';
-            end
-            
+        
+        
+        function plotERPs(obj,varargin)
+            %   [...] = plotERPs(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
+            %   parameters and their values.  Valid parameters are the following:
+            %
+            %        Parameter  Value
+            %         'vars2plot'    cell array of variables in the object
+            %                        to plot. Default is to plot all
+            %                        variables
+            %                  
+            %         'freq2plot'    cell array of frequencies in the object
+            %                        to plot. Default is to plot all
+            %                        frequencies
+            %                   
+            %         'times2plot'   cell array of time ranges in the object
+            %                        to plot. Default is to plot all
+            %                        time ranges
+            %         'errorType'    string value of the type of error to
+            %                        plot. choices are 'none','sem', and
+            %                        '95CI'. Default is 'none'
+
+            N=length(obj.info.groupNames);
+            pnames = {'vars2plot','freq2plot','times2plot','errorType'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),'none' };
+            [vars2plot,freq2plot,times2plot,errorType] = parseArgs(pnames,dflts,varargin{:});
             if ~ismember(errorType, {'none', 'sem', '95CI'})
                 error('Invalid value for errorType. Allowed values are ''none'', ''sem'', and ''95CI''.');
             end
-            
             color_list={'g','b','r'};
-            N=numel(fieldnames(obj.DATA));
-            timeNames = fieldnames(obj.info.timeRange);
+           
             sigElectrodes=obj.scalpResults.sigElectrodes;
             for p=1:length(vars2plot)
                 property=vars2plot{p};
                 time_list = intersect(fieldnames(sigElectrodes.(property)),times2plot);
 
                 for t=1:length(time_list)
-
+                    
                     time=time_list{t};
                     sig=sigElectrodes.(property).(time);
                     [~,~,ib] = intersect(fieldnames(sig),freq2plot);
                     freq_list=freq2plot(sort(ib));
-
                     % get longest electrode map
                     maxLength = 0;
                     for i = 1:length(freq_list)
@@ -166,9 +251,26 @@ classdef ScalpAnalysis < DataAnalysis
             end
         end
         function plotScalpBar(obj,vars2plot,freq2plot,times2plot)
+            %   [...] = plotScalpBar(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
+            %   parameters and their values.  Valid parameters are the following:
+            %
+            %        Parameter  Value
+            %         'vars2plot'    cell array of variables in the object
+            %                        to plot. Default is to plot all
+            %                        variables
+            %                  
+            %         'freq2plot'    cell array of frequencies in the object
+            %                        to plot. Default is to plot all
+            %                        frequencies
+            %                   
+            %         'times2plot'   cell array of time ranges in the object
+            %                        to plot. Default is to plot all
+            %                        time ranges
+            
+
             N=numel(fieldnames(obj.DATA));
             combinations = nchoosek(1:N,2);
-            timeNames = fieldnames(obj.info.timeRange);
+
             sigElectrodes=obj.scalpResults.sigElectrodes;
             for p=1:length(vars2plot)
                 property=vars2plot{p};
@@ -254,7 +356,7 @@ end
 
 
 %% Plotting scalpmap with significant electrodes
-function new_chan = plotSigTopo(s1,s2,chanlocs,pvals, key)
+function plotSigTopo(s1,s2,chanlocs,pvals, key)
     %[~,p]=fdr(reshape(p,[1,numel(p)]),0.05);
     mask=key((pvals<0.05)+1);
     [chanlocs.labels]=mask{:};
