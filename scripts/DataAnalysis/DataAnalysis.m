@@ -61,7 +61,7 @@ classdef DataAnalysis
         end
         
 
-        function obj = standardPipeline(obj)
+        function obj = standardProcessing(obj)
             properties = obj.info.variables;
             disp('---------------------------------')
             for j = 1:length(properties)
@@ -184,22 +184,27 @@ classdef DataAnalysis
                 end
             end
         end
-        function obj=NeurBehMdl(obj,behTbl,keyColumnName,baseModel,modelname)
-            % behTbl | table with behavior/redcap data which you want to correlate
-            % with neural data. Subject names must be included and in the exact same
-            % format as the subList in neural data
+        function obj=NeurBehMdl(obj,neuralVar,behTbl,keyColumnName,baseModel,modelname)
+            % neuralVar     | cell array of neural variable to test against
+            %                 base model
+            % behTbl        | table with behavior/redcap data which you want to correlate
+            %                 with neural data. Subject names must be included and in  
+            %                 the exact same format as the subList in neural data
             % keyColumnName | string input denoting column name for subjectID
-            % baseModel | model definition for fitlm, neural data will be appened on 
-            %            ex: basemodel='target ~ var1+' ->  basemodel='target ~ +var1+neural'
-            %            ex: basemodel='target ~ var1*' ->  basemodel='target ~ var1*neural'
-            if nargin<5
-                modelname=makeValidFieldName(baseModel+'neural');
-            end
+            % baseModel     | model definition for fitlm, neural data will be appened on 
+            %                 ex: basemodel='target ~ var1+' ->  basemodel='target ~ +var1+neural'
+            %                 ex: basemodel='target ~ var1*' ->  basemodel='target ~ var1*neural'
+
             fnames = fieldnames(obj);
             results = fnames{contains(fnames,'Results')};
             timeNames = fieldnames(obj.info.timeRange);
-            for p=1:length(obj.info.variables)
-                property = obj.info.variables{p};
+            for p=1:length(neuralVar)
+                property = neuralVar{p};
+                if nargin<5
+                    modelname=makeValidFieldName(append(baseModel,"_",property));
+                else
+                    modelname=append(modelname,"_",property);
+                end
                 sigStruct=obj.(results).sigValues.(property);
                 timeNames=fieldnames(sigStruct);
                 NBtbl=[];
@@ -221,7 +226,7 @@ classdef DataAnalysis
                 end
 
                 count=0;
-                while isfield(obj.(results).neuralBehMdl,modelname)
+                while isfield(obj.neuralBehMdl,modelname)
                     modelname = modelname+string(count);
                     count=count+1;
                 end
