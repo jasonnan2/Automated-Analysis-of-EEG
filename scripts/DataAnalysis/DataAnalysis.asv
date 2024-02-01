@@ -201,7 +201,7 @@ classdef DataAnalysis
                                data =[data; subdata];
                                subsOrig = obj.DATA.(obj.info.groupNames{n}).subList;
                                missing = obj.DATA.(obj.info.groupNames{n}).missingSubs{p_idx}(2:end);
-                               allsubs=[allsubs,reshape(setdiff(subsOrig,missing), 1, [])];
+                               allsubs=[allsubs,setdiff(subsOrig,missing)];
                                groupname=[groupname repmat(obj.info.groupNames(n),1,length(subdata))];
                             end
                             tbldata = [tbldata data];
