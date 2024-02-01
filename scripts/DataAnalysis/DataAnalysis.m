@@ -61,16 +61,40 @@ classdef DataAnalysis
         end
         
 
-        function obj = standardProcessing(obj)
+        function obj = standardProcessing(obj,varargin)
+            %        Parameter  Value
+            %         'outlier'    String to define either 5SD or 3MAD
+            %                      between subjects outlier removal
+            %                      Default is 5SD
+            %         'calBaseline' 1/0 binary if you want to calculate
+            %                       baseline. Default is true
+            
+            pnames = {'outlier','calBaseline'};
+            dflts  = {'5SD',1};
+            [outlier,calBaseline] = parseArgs(pnames,dflts,varargin{:});
+
             properties = obj.info.variables;
             disp('---------------------------------')
             for j = 1:length(properties)
                 property = properties{j};
                 disp("Processing "+property)
                 combined = obj.combine_groups(property);
-                cleaned = obj.rej5SD(combined);
+                
+                if strcmp(outlier,'5SD')
+                    cleaned = obj.rej5SD(combined);
+                elseif strcmp(outlier,'3MAD')
+                    cleaned = obj.rej3MAD(combined);
+                elseif strcmp(outlier,'none')
+                    cleaned=combined;
+                end
+                
                 baselineCorrected = obj.baselineCorrection(cleaned,obj.info.baselineIDX);
-                obj = obj.split_combined( baselineCorrected,property);
+                if calBaseline
+                    obj = obj.split_combined( baselineCorrected,property);
+                else
+                    obj = obj.split_combined( cleaned,property);
+                end
+                
                 disp('---------------------------------')
             end
         end
@@ -96,15 +120,19 @@ classdef DataAnalysis
         function s = getGroupData(obj,group,property,freq,timeName,chans)
             % group | name of the group
             % property | string of variable
-            % freq | string of frequency band
+            % freq | string of frequency band. if 'all', gets all freq
             % chans | vector of chans to include, if 'all' or empty indicates use all channels
             % timeName | string of timeName
 
             if nargin < 6
                 chans = 'all';
             end
-
-            freqIdx = find(strcmp(obj.info.freq_list, freq));
+            
+            if strcmp(freq,'all')
+                freqIdx=1:size(obj.DATA.(group).(property),1);
+            else
+                freqIdx = find(strcmp(obj.info.freq_list, freq));
+            end
             timeIdx = obj.info.timeIDX.(timeName);
 
             if isempty(chans) || (ischar(chans) && strcmp(chans, 'all'))
@@ -246,6 +274,22 @@ classdef DataAnalysis
                         zval = zscore(squeeze(combined(f, chan, t, :)));
                         combined(f, chan, t, zval > 5) = nan;
                     end
+                end
+            end
+        end
+        
+        function combined = rej3MAD(combined)
+            disp('3 MAD Outlier')
+            for f = 1:size(combined, 1)
+                for chan = 1:size(combined, 2)
+                    data=squeeze(combined(f, chan, :));
+                    out = isoutlier(data);
+                    data(out)=nan;
+                    combined(f, chan, :) = data;
+%                     for t = 1:size(combined, 3)
+%                         out = isoutlier(squeeze(combined(f, chan, t, :)));
+%                         combined(f, chan, t, out) = nan;
+%                     end
                 end
             end
         end

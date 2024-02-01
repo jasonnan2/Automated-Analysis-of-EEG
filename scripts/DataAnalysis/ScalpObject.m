@@ -1,5 +1,3 @@
-
-
 classdef ScalpObject < DataAnalysis
     properties
         DATA
