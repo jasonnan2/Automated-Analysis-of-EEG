@@ -32,8 +32,9 @@ classdef ScalpObject < DataAnalysis
 
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
-                            pvals=obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values
+                            [pvals, stats] =obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values
                             obj.scalpResults.sigElectrodesP.(property).(timeNames{t}).(append(group1,"_",group2)).(obj.info.freq_list{f})=pvals;
+                            obj.scalpResults.sigElectrodesStats.(property).(timeNames{t}).(append(group1,"_",group2)).(obj.info.freq_list{f})=stats;
 
                             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
 
@@ -245,11 +246,17 @@ classdef ScalpObject < DataAnalysis
             %         'times2plot'   cell array of time ranges in the object
             %                        to plot. Default is to plot all
             %                        time ranges
-            
-            pnames = {'vars2plot','freq2plot','times2plot'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange) };
-            [vars2plot,freq2plot,times2plot] = parseArgs(pnames,dflts,varargin{:});
-            N=numel(fieldnames(obj.DATA));
+            %         'chans2plot'   cell array of channels in the object
+            %                        to plot. Default is to plot all
+            %                        frequencies
+            %         'groups'       cell array of groups in the object
+            %                        to plot. Default is to plot all
+            %                        groups. Can also be used to rearrange
+            %                        bar order
+            pnames = {'vars2plot','freq2plot','times2plot','chans2plot','groups'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),{obj.info.chanlocs.labels},fieldnames(obj.DATA)};
+            [vars2plot,freq2plot,times2plot,chans2plot,groups] = parseArgs(pnames,dflts,varargin{:});
+            N=numel(groups);
             combinations = nchoosek(1:N,2);
 
             sigElectrodes=obj.scalpResults.sigElectrodes;
@@ -276,14 +283,22 @@ classdef ScalpObject < DataAnalysis
                     if ~isempty(freq_list)
                         figure
                         for f=1:length(freq_list)
+                            chan_list = intersect(chans2plot,sig.(freq_list{f}));
+                            if length(chan_list)<length(chans2plot)
+                                chan_list=chans2plot;
+                            end
 
-                            for c=1:length(sig.(freq_list{f}))
-
+                            for c=1:length(chan_list)
+                                
+                                if length(freq_list)==1
+                                    maxLength=length(chan_list);
+                                end
+                                
                                 %subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
                                 subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f);
 
                                 freq=freq_list{f};
-                                chan=sig.(freq){c};
+                                chan=chan_list{c};
                                 freqIdx = find(strcmp(obj.info.freq_list, freq));
                                 timeIdx = obj.info.timeIDX.(timeName);
                                 elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
@@ -291,7 +306,7 @@ classdef ScalpObject < DataAnalysis
                                 hold on
                                 % Get all the group data
                                 for n=1:N
-                                    subdata = squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3));
+                                    subdata = squeeze(nanmean(obj.getGroupData(groups{n},property,freq,timeName,elecIdxs),3));
                                     data(n) = nanmean(subdata);
                                     sem(n) = std(subdata)/sqrt(length(subdata));
                                 end
@@ -301,8 +316,8 @@ classdef ScalpObject < DataAnalysis
                                 [ngroups, nbars] = size(data);
                                 groupwidth = min(0.8, nbars/(nbars + 1.5));
                                 for comb = 1:size(combinations, 1)
-                                    group1=obj.info.groupNames{combinations(comb, 1)};
-                                    group2=obj.info.groupNames{combinations(comb, 2)};
+                                    group1=groups{combinations(comb, 1)};
+                                    group2=groups{combinations(comb, 2)};
                                     s1=[];s2=[];
                                     s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName,elecIdxs),3));
                                     s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName,elecIdxs),3));
@@ -322,7 +337,7 @@ classdef ScalpObject < DataAnalysis
                                 end
                             end
                         end
-                        Lgnd = legend(obj.info.groupNames);
+                        Lgnd = legend(groups,'fontweight','bold','fontsize',9);
                         Lgnd.Position(1) = 0.7;
                         Lgnd.Position(2) = 0.9;
                         sgtitle(strcat(property,'-',timeName))

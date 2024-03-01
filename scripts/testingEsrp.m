@@ -3,18 +3,53 @@ cd('C:\Users\jason\OneDrive\Desktop\MS Beng\Neatlabs\Climate_LuckyDoor')
 addpath('scripts')
 addpath('scripts/DataAnalysis')
 addpath('scripts/DataAnalysis/functions')
-addpath 'A:\eeglab_OldLSL_DataAna04072023'
-eeglab
 %% Loading in data and definitions
+clear all;clc
+dataPath='A:\ClimateLD\analysis_results\formattedData\ClimateLD_allgroups_exRareG_amp_rmv.mat';
+load(dataPath)
+baselineTime=[-250 -50];
+timeRange.a=[-250 500];
+scalpObject=ScalpObject(CLIMATELD.scalpData, CLIMATELD.info, baselineTime, timeRange); % Initialize scalp processing
+scalpObject = scalpObject.cleanDatasets(); 
+%% 
+
+p=scalpObject.info.variables;
+groups=scalpObject.info.groupNames;
+
+for g=1:length(groups)
+    data=double(squeeze(scalpObject.DATA.(groups{g}).(p{1})(4,:,:,:)));
+    EEG=struct();
+    for n=1:size(data,3)
+        EEG.data=data(:,:,n);
+        EEG.trials=size(EEG.data,3);
+        EEG.nbchan=size(EEG.data,1);
+        EEG.times=-500:4:1496;
+        EEG.srate=250;
+        try
+            [ERSP_Pxx, ~, EEGtimes, freq, ~] = timeFrequencyDecomposition_jasonTest(EEG, [], [1 45]);
+        catch
+            ERSP_Pxx=nan(24,30,1,474);
+        end
+        erspData.DATA.(groups{g}).(p{1})(:,:,:,n)=squeeze(ERSP_Pxx);
+        
+    end
+end
+
+
+%%
 dataPath='A:\ClimateLD\analysis_results\formattedData\ClimateLD_ersp_allgroups_exRareG_amp_rmv.mat';
 load(dataPath)
 CLIMATELD.info.experimentalDesign='twoSample';
-%% ERSP Analysis
+CLIMATELD.erspData.Control.exRareg=erspData.DATA.Control.exRareg;
+CLIMATELD.erspData.Witnessed.exRareg=erspData.DATA.Witnessed.exRareg;
+CLIMATELD.erspData.HappenedTo.exRareg=erspData.DATA.HappenedTo.exRareg;
+
+%%
 baselineTime=[-250 -50];
 % Defining time ranges of interest
 timeRange=struct();
 timeRange.base=[-250 500];
-timeRange.choice=[0 500];
+
 freqRanges.theta=[3 8];
 freqRanges.alpha=[8 13];
 freqRanges.beta=[13,30];
@@ -26,7 +61,7 @@ scalpObj = erspObject.createERP(freqRanges); % convert ersp data to ERP data by 
 
 %%
 close all
-erspObject.plotERSPgroups('chans2plot',{'Fz','Pz'},'groups2plot',{'HappenedTo','Witnessed','Control'},'cRange',[-0.5 1])
+erspObject.plotERSPgroups('chans2plot',{'Fz','Pz'},'groups2plot',{'HappenedTo','Witnessed','Control'},'cRange',[-0.1 .1])
 
 han=axes(gcf,'visible','off'); 
 han.XLabel.Visible='on';
@@ -40,21 +75,24 @@ ylab.Position(2) = ylab.Position(2);
 xlab.Position(1) =xlab.Position(1); % change horizontal position of xlabel
 xlab.Position(2) = xlab.Position(2)-0.01; 
 sgtitle('')
-%%
-timeRange=struct();
-timeRange.choice=[0 500];
 
-scalpObject=ScalpObject(scalpObj.DATA, scalpObj.info, baselineTime, timeRange); % Initialize scalp processing
-%scalpObject = scalpObject.standardProcessing('outlier','none','calBaseline',0); % standard processing pipeline, 5SD outlier, baseline correction
-scalpObject = scalpObject.ScalpAnalysis(); % calcualtes all significant electrodes between groups across all conditions
-scalpObject = scalpObject.calSigTbl(); % creating table of significant neural attributes
 
-% Scalp Plotting
-close all
-errorType='sem';
-scalpObject.plotScalpMap('freq2plot',{'alpha'});
-%caxis([-5 5])
-%scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',{'theta'},'times2plot',{'theta'});
-%scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',{'beta'},'times2plot',{'beta'});
-%scalpObject.plotERPs('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
-%scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

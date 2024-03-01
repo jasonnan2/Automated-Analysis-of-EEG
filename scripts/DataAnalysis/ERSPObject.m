@@ -19,6 +19,7 @@ classdef ERSPObject < DataAnalysis
             for p=1:length(properties)
                 for n=1:N
                     group=obj.info.groupNames{n};
+                    scalpData=[];
                     for i = 1:length(freq_list)
                         freqidx = find(obj.info.freqAxis >= freqRanges.(freq_list{i})(1)& obj.info.freqAxis < freqRanges.(freq_list{i})(2));
                         scalpData(i,:,:,:)=nanmean(obj.DATA.(group).(properties{p})(freqidx,:,:,:),1);
@@ -56,12 +57,13 @@ classdef ERSPObject < DataAnalysis
             %                        comparisons on.
             %                        ex: [1,2] will do groups 1 vs 2
             %                            [1,2;1,3] is 1 vs 2 and 1 vs 3
+            %         'cRange'        [-mx mx] range for colorlimit. default
+            %                       is entire range of data points 
             N = length(obj.info.groupNames);
-            pnames = {'vars2plot','chans2plot','times2plot','combinations'};
-            dflts  = {obj.info.variables,{obj.info.chanlocs.labels}, fieldnames(obj.info.timeRange),nchoosek(1:N,2)};
-            [vars2plot,chans2plot,times2plot,combinations] = parseArgs(pnames,dflts,varargin{:});
+            pnames = {'vars2plot','chans2plot','times2plot','combinations','cRange'};
+            dflts  = {obj.info.variables,{obj.info.chanlocs.labels}, fieldnames(obj.info.timeRange),nchoosek(1:N,2),nan};
+            [vars2plot,chans2plot,times2plot,combinations,cRange] = parseArgs(pnames,dflts,varargin{:});
             [yTicks, yTickLabels] = logFreq2Ticks(obj.info.freqAxis);
-            
             
             for p=1:length(vars2plot)
                 property=vars2plot{p}; % get property name
@@ -69,16 +71,15 @@ classdef ERSPObject < DataAnalysis
 
                     group1=obj.info.groupNames{combinations(comb, 1)};
                     group2=obj.info.groupNames{combinations(comb, 2)};
-                    figure
-                    figCount=0;
+
                     for t=1:length(times2plot)
                         
                         timeName=times2plot{t};
                         timeIdx = obj.info.timeIDX.(timeName);
                         
-                        
                         for c=1:length(chans2plot)
-                            
+                            figure
+                            figCount=0;
                             chan=chans2plot{c};
                             cIDX=find(strcmp(chan,{obj.info.chanlocs.labels}));
                             
@@ -90,20 +91,20 @@ classdef ERSPObject < DataAnalysis
                             else
                                 [~,p]=ttest2(s1,s2,'dim',3);
                             end
-                            
-                            plotdata=nanmean(s2-s1,3);
+       
+                            plotdata=squeeze(nanmean(s2,3)-nanmean(s1,3));
                             plotdata(p>0.05)=nan;
                             
-%                             tempvar; % F x T matrix
-%                             mx = max(abs(prctile(nonzeros(tempvar),[10 90])));
-%                             mn = -mx;
-                            mx=5;
-                            mn=-mx;
+                            if isnan(cRange)
+                                mx = max(abs(prctile(nonzeros(plotdata),[10 90])));
+                                mn = -mx;
+                                cRange=[mn mx];
+                            end
                             
                             figCount = figCount + 1;
                             subplot(t,3,figCount) % each row is a time, columns are significant mask, then individual plots
                             imagesc(obj.info.timeAxis(timeIdx(1):timeIdx(2)),(obj.info.freqAxis),squeeze(nanmean(s1,3)))
-                            set(gca,'YDir','normal','FontSize',16,'YTick',yTicks,'YTickLabels',yTickLabels,'yLim',[2 30],'CLim',[mn mx]);
+                            set(gca,'YDir','normal','FontSize',16,'YTick',yTicks,'YTickLabels',yTickLabels,'yLim',[2 30],'CLim',cRange);
                             ylabel('Freq (Hz)')
                             title(group1)
                             colorbar
@@ -111,7 +112,7 @@ classdef ERSPObject < DataAnalysis
                             figCount = figCount + 1;
                             subplot(t,3,figCount) % each row is a time, columns are significant mask, then individual plots
                             imagesc(obj.info.timeAxis(timeIdx(1):timeIdx(2)),(obj.info.freqAxis),squeeze(nanmean(s2,3)))
-                            set(gca,'YDir','normal','FontSize',16,'YTick',yTicks,'YTickLabels',yTickLabels,'yLim',[2 30],'CLim',[mn mx]);
+                            set(gca,'YDir','normal','FontSize',16,'YTick',yTicks,'YTickLabels',yTickLabels,'yLim',[2 30],'CLim',cRange);
                             title(group2)
                             xlabel('Time (mS)')
                             colorbar
@@ -126,20 +127,76 @@ classdef ERSPObject < DataAnalysis
                             shading flat;
                             colorbar
                             set(gca,'XTick',find(ismember(obj.info.timeAxis(timeIdx(1):timeIdx(2)),xt)), 'XTickLabels',xtl)
-                            set(gca,'YDir','normal','FontSize',16,'YTick',yTicks,'YTickLabels',yTickLabels,'yLim',[2 30],'CLim',[mn mx]);
+                            set(gca,'YDir','normal','FontSize',16,'YTick',yTicks,'YTickLabels',yTickLabels,'yLim',[2 30],'CLim',cRange);
                             title(group2+"-"+group1)
+
+                            sgtitle(property+" "+chan)
                  
                         end
-                        sgtitle(property+" "+chan)
                     end
                 end
             end
-            
         end
-  
-        
-        
-        
+        function plotERSPgroups(obj,varargin)
+            
+            %   [...] = plotERSP(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
+            %   parameters and their values.  Valid parameters are the following:
+            %
+            %        Parameter  Value
+            %         'vars2plot'    cell array of variables in the object
+            %                        to plot. Default is to plot all
+            %                        variables
+            %                  
+            %         'chans2plot'   cell array of channels in the object
+            %                        to plot. Default is to plot all
+            %                        frequencies
+            %                   
+            %         'times2plot'   cell array of time ranges in the object
+            %                        to plot. Default is to plot all
+            %                        time ranges
+            %         'groups2plot'   cell array of groupnames in the object
+            %                        to plot. Default is to plot all
+            %                        groups
+            %         'cRange'        [-mx mx] range for colorlimit. default
+            %                       is entire range of data points 
+            N = length(obj.info.groupNames);
+            pnames = {'vars2plot','chans2plot','times2plot','groups2plot','cRange'};
+            dflts  = {obj.info.variables,{obj.info.chanlocs.labels}, fieldnames(obj.info.timeRange),obj.info.groupNames,nan};
+            [vars2plot,chans2plot,times2plot,groups2plot,cRange] = parseArgs(pnames,dflts,varargin{:});
+            [yTicks, yTickLabels] = logFreq2Ticks(obj.info.freqAxis);
+            
+            for p=1:length(vars2plot)
+                property=vars2plot{p}; % get property name
+                for t=1:length(times2plot)
+                    timeName=times2plot{t};
+                    timeIdx = obj.info.timeIDX.(timeName);
+                    figure
+                    figCount=0;
+                    for c=1:length(chans2plot)
+                        chan=chans2plot{c};
+                        cIDX=find(strcmp(chan,{obj.info.chanlocs.labels}));                        
+                        for n=1:length(groups2plot)
+                            group=groups2plot{n};
+                            s = squeeze((obj.getGroupData(group,property,'all',timeName,cIDX)));
+                            figCount = figCount + 1;
+                            subplot(length(chans2plot),3,figCount) % each row is a time, columns are significant mask, then individual plots
+                            imagesc(obj.info.timeAxis(timeIdx(1):timeIdx(2)),(obj.info.freqAxis),squeeze(nanmean(s,3)))
+                            set(gca,'YDir','normal','FontSize',16,'YTick',yTicks,'YTickLabels',yTickLabels,'yLim',[2 30],'CLim',cRange);
+                            if n==1
+                                %ylabel('Freq (Hz)')
+                                ylabel(chan)
+                            end
+                            if c==1
+                                title(group)
+                            end
+                            
+                            colorbar
+                        end
+                        sgtitle(chan,'fontweight','bold','fontsize',16)
+                    end
+                end
+            end 
+        end
         %--------------END OF CLASS METHODS-----------------------%
     end
     

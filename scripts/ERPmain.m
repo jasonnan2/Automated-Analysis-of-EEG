@@ -9,10 +9,11 @@ addpath('scripts/DataAnalysis/functions')
 addpath('A:\eeglab_OldLSL_DataAna04072023')
 eeglab
 %% Loading in data and definitions
-dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_allgroups_amp_rmv.mat';
+%dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_allgroups_amp_rmv.mat';
 %dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_combinedGroup_amp_rmv.mat';
 %dataPath='A:\ClimateLD\analysis_results\formattedData\ClimateLD_traumaGroup_amp_rmv.mat';
-%dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_combinedGroup_exRareG_amp_rmv.mat';
+dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_combinedGroup_exRareG_amp_rmv.mat';
+%dataPath='A:/ClimateLD/analysis_results/formattedData/ClimateLD_allgroups_exRareG_amp_rmv.mat';
 load(dataPath)
 CLIMATELD.info.experimentalDesign='twoSample';
 
@@ -28,9 +29,10 @@ baselineTime=[-250 -50];
 % Defining time ranges of interest
 timeRange=struct();
 timeRange.choice=[0 500];
+%timeRange.ersp=[-250 500];
 timeRange.imReward=[500 1000];
 timeRange.cumReward=[1000 1500];
-%timeRange.all=[0 1500];
+timeRange.all=[0 1500];
 
 % defining network
 fpn=[5 6 55 66 59 60];netwrk(1).name='FPN';netwrk(1).roi=fpn;
@@ -53,10 +55,10 @@ scalpObject = scalpObject.calSigTbl(); % creating table of significant neural at
 
 %% Scalp Plotting
 close all
-vars2plot={'EVgain'}; freq2plot={'broadband'}; times2plot={'choice'}; errorType='sem';
-scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,3]);
+vars2plot={'exRareg'}; freq2plot={'alpha'}; times2plot={'choice'}; errorType='sem'; chans2plot={'Pz'};
+scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2]);
 scalpObject.plotERPs('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
-scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
+scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'chans2plot',chans2plot)
 
 %% Scalp Behavior Models
 %%% adding in two more models into sigValues table to run NeurBehMdls
@@ -72,14 +74,14 @@ for t=1:length(time_list)
 end
 %fdr(scalpObject.scalpResults.sigElectrodesP.exRareg.all.alpha)
 % behavior and neural analysis
-neuralVar={'EVgain'};
+neuralVar={'exRareg'};
 baseModel="ex_WS_RareG ~ 1  + age+ group+"; keyColumnName='Subject';
 scalpObject=scalpObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'ex_WS_RareG_linear');
 baseModel="ex_WS_RareG ~ 1  + age+ group*"; keyColumnName='Subject';
 scalpObject=scalpObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'ex_WS_RareG_combo');
 
-scalpObject.neuralBehMdl.ex_WS_RareG_linear = extractp(scalpObject.neuralBehMdl.ex_WS_RareG_linear_EVgain,'',1);
-scalpObject.neuralBehMdl.ex_WS_RareG_combo = extractp(scalpObject.neuralBehMdl.ex_WS_RareG_combo_EVgain,"group_Control:",0);
+scalpObject.neuralBehMdl.ex_WS_RareG_linear = extractp(scalpObject.neuralBehMdl.ex_WS_RareG_linear_exRareg,'',1);
+scalpObject.neuralBehMdl.ex_WS_RareG_combo = extractp(scalpObject.neuralBehMdl.ex_WS_RareG_combo_exRareg,"group_Control:",0);
 
 
 %% Source Analysis
@@ -92,10 +94,10 @@ sourceObject = sourceObject.calSigTbl();
 
 %% Source Plotting
 %sourceObject.plotNetwork(netwrk,vars2plot); % grouped network bar plots for specified measure
-sourceObject.plotBrainmap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,3]); % full roi plot for specified measure
+sourceObject.plotBrainmap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2]); % full roi plot for specified measure
 
 %% Source Behavior Model
-neuralVar={'EVgain'};
+neuralVar={'exRareg'};
 baseModel="ex_WS_RareG ~ 1 + age +group+"; keyColumnName='Subject';
 sourceObject=sourceObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'ex_WS_RareG_linear');
 
@@ -103,12 +105,12 @@ baseModel="ex_WS_RareG ~ 1 + age +group*"; keyColumnName='Subject';
 sourceObject=sourceObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'ex_WS_RareG_combo');
 
 %fdr(sourceObject.sourceResults.sigROIsP.exRareg.all.alpha(:,end))
-sourceObject.neuralBehMdl.ex_WS_RareG_linear = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_linear,'',0);
-sourceObject.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_combo,"group_Control:");
-sourceObject.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_combo,"group_HappenedTo:");
+sourceObject.neuralBehMdl.ex_WS_RareG_linear = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_linear_exRareg,'',0);
+sourceObject.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_combo_exRareg,"group_Control:");
+sourceObject.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_combo_exRareg,"group_HappenedTo:");
 
 %% 
-sourceChoicetbl = sourceObject.sigValues.exRareg.choice;
+sourceChoicetbl = sourceObject.sourceResults.sigValues.exRareg.choice;
 source_mdl=sourceObject.neuralBehMdl.ex_WS_RareG_linear.model{1};
 
 scalpChoicetbl = scalpObject.sigValues.exRareg.choice;

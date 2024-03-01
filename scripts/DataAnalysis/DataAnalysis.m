@@ -310,7 +310,7 @@ classdef DataAnalysis
         end
 
         % Function to calculate which electrodes are significant btw two groups
-        function pvals=calGroupSig(s1,s2,experimentalDesign)
+        function [pvals,stats]=calGroupSig(s1,s2,experimentalDesign)
             % s1 and s2 are data matrices size C channels x N subjects
             % experimentalDesign is string for 'paired' or 'twoSample'
             % Perform t-tests
@@ -328,9 +328,9 @@ classdef DataAnalysis
             for chan = 1:size(s1,1)
                 % Get non-NaN indices
                 if strcmp(experimentalDesign,'paired')
-                    [~,pvals(chan)] = ttest(s1(chan,:), s2(chan,:));
+                    [~,pvals(chan),~,stats(chan)] = ttest(s1(chan,:), s2(chan,:));
                 elseif strcmp(experimentalDesign,'twoSample')
-                    [~,pvals(chan)] = ttest2(s1(chan,:), s2(chan,:));
+                    [~,pvals(chan),~,stats(chan)] = ttest2(s1(chan,:), s2(chan,:));
                 end
                 if isnan(pvals(chan))
                     disp('asdfawrsasdbaweasbas')
@@ -339,7 +339,7 @@ classdef DataAnalysis
             end
         end
         function plotErrBar(data,sem)
-            color_list={'g','b','r'};
+            color_list={'r','b','g'};
             if isrow(data) | iscolumn(data)
                 data = vertcat(data,nan(size(data)));
                 sem = vertcat(sem,nan(size(sem)));
