@@ -34,7 +34,7 @@ classdef ScalpObject < DataAnalysis
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
                             [pvals, stats] =obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values
                             obj.scalpResults.sigElectrodesP.(property).(timeNames{t}).(append(group1,"_",group2)).(obj.info.freq_list{f})=pvals;
-                            obj.scalpResults.sigElectrodesStats.(property).(timeNames{t}).(append(group1,"_",group2)).(obj.info.freq_list{f})=stats;
+                            %obj.scalpResults.sigElectrodesStats.(property).(timeNames{t}).(append(group1,"_",group2)).(obj.info.freq_list{f})=stats;
 
                             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
 
@@ -248,7 +248,7 @@ classdef ScalpObject < DataAnalysis
             %                        time ranges
             %         'chans2plot'   cell array of channels in the object
             %                        to plot. Default is to plot all
-            %                        frequencies
+            %                        channels
             %         'groups'       cell array of groups in the object
             %                        to plot. Default is to plot all
             %                        groups. Can also be used to rearrange
@@ -263,7 +263,7 @@ classdef ScalpObject < DataAnalysis
             for p=1:length(vars2plot)
                 property=vars2plot{p};
                 time_list = intersect(fieldnames(sigElectrodes.(property)),times2plot);
-
+                figure
                 for t=1:length(time_list)
 
                     timeName=time_list{t};
@@ -281,7 +281,7 @@ classdef ScalpObject < DataAnalysis
                     end
 
                     if ~isempty(freq_list)
-                        figure
+                        %figure
                         for f=1:length(freq_list)
                             chan_list = intersect(chans2plot,sig.(freq_list{f}));
                             if length(chan_list)<length(chans2plot)
@@ -293,9 +293,9 @@ classdef ScalpObject < DataAnalysis
                                 if length(freq_list)==1
                                     maxLength=length(chan_list);
                                 end
-                                
+                                subplot(1,3,t)
                                 %subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
-                                subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f);
+                                %subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f);
 
                                 freq=freq_list{f};
                                 chan=chan_list{c};
@@ -311,7 +311,7 @@ classdef ScalpObject < DataAnalysis
                                     sem(n) = std(subdata)/sqrt(length(subdata));
                                 end
                                 obj.plotErrBar(data,sem); % plot actual bars
-                                
+                                ylim([-0.025 0.045])
                                 % getting significance bars
                                 [ngroups, nbars] = size(data);
                                 groupwidth = min(0.8, nbars/(nbars + 1.5));

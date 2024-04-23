@@ -160,7 +160,19 @@ classdef DataAnalysis
             end
         end
         
-        function obj = calSigTbl(obj)
+        function obj = calSigTbl(obj,chanTypes)
+            % chanTypes | 'all' |'sig' string value indicating what channels to save as
+            %             table. default is to save only significant channels 'sig' 
+            
+            if nargin<2
+                chanTypes='sig';
+            else
+                chanTypes=lower(chanTypes);
+            end
+            if ~(strcmp(chanTypes,'all') | strcmp(chanTypes,'sig'))
+                error("chanTypes must be specified as 'all' or 'sig'"+chanTypes+": was gotten instead")
+            end
+            
             fnames = fieldnames(obj);
             results = fnames{contains(fnames,'Results')};
             obj.(results).neuralBehMdl = struct();
@@ -169,8 +181,10 @@ classdef DataAnalysis
             
             if isfield(obj.(results),'sigElectrodes')
                 sigChans=obj.(results).sigElectrodes;
+                chanSet={obj.info.chanlocs.labels};
             elseif isfield(obj.(results),'sigROIs')
                 sigChans=obj.(results).sigROIs;
+                chanSet=obj.info.roi;
             end
 
             varNames=fieldnames(sigChans);
@@ -181,27 +195,43 @@ classdef DataAnalysis
                 time_list = intersect(fieldnames(sigChans.(property)),times2plot);
 
                 for t=1:length(time_list)
-
                     timeName=time_list{t};
                     sig=sigChans.(property).(timeName);
-                    freq_list=fieldnames(sig);
+                    
+                    if strcmp(chanTypes,'sig')
+                        freq_list=fieldnames(sig);
+                    elseif strcmp(chanTypes,'all')
+                        freq_list=obj.info.freq_list;
+                    end
+                    
                     % get longest electrode map
                     labels=[]; tbldata=[];
+                    
                     for f=1:length(freq_list)
-                        for c=1:length(sig.(freq_list{f}))
+                        
+                        if strcmp(chanTypes,'sig')
+                            allChans=sig.(freq_list{f});
+                        elseif strcmp(chanTypes,'all')
+                            allChans=chanSet;
+                        else
+                            error("chanTypes must be specified as 'all' or 'sig'"+chanTypes+": was gotten instead")
+                        end
+                        
+                        for c=1:length(allChans)
                             freq=freq_list{f};
-                            chan=sig.(freq){c};
+                            chan=allChans{c};
                             elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
                             if isempty(elecIdxs)
                                 elecIdxs = find(strcmp(obj.info.roi,chan ));
                             end
                             data=[];allsubs=[];groupname=[];
-                            for n=1:N
+                            for n=1:N % iterate groups
                                subdata = [squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3))];
                                data =[data; subdata];
                                subsOrig = obj.DATA.(obj.info.groupNames{n}).subList;
                                missing = obj.DATA.(obj.info.groupNames{n}).missingSubs{p_idx}(2:end);
-                               allsubs=[allsubs,reshape(setdiff(subsOrig,missing), 1, [])];
+                               subsOrig(contains(subsOrig,missing))=[];
+                               allsubs=[allsubs,reshape(subsOrig, 1, [])];
                                groupname=[groupname repmat(obj.info.groupNames(n),1,length(subdata))];
                             end
                             tbldata = [tbldata data];
@@ -246,7 +276,9 @@ classdef DataAnalysis
                     behTbl.(keyColumnName)=lower(behTbl.(keyColumnName));
                     neuralTbl.subID = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), neuralTbl.subID, 'UniformOutput', false);
                     % Join tables
-                    tbldata = innerjoin(neuralTbl, behTbl, 'LeftKeys', 'subID', 'RightKeys', keyColumnName,'RightVariables', setdiff(behTbl.Properties.VariableNames,neuralTbl.Properties.VariableNames));
+                    tbldata = innerjoin(neuralTbl, behTbl, 'LeftKeys', 'subID', 'RightKeys', keyColumnName,'RightVariables', ...
+                                setdiff(behTbl.Properties.VariableNames,neuralTbl.Properties.VariableNames));
+                
                     if height(tbldata)~=height(neuralTbl)
                         warning('New Table is missing some subjects, please make sure behTbl has all the subejcts present')
                     end

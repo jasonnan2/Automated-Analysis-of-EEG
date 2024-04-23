@@ -6,6 +6,8 @@ for i=1:height(behModels)
     model=behModels.model{i};
     if sum(strcmp(template,model.CoefficientNames)) & ~isempty(template)
         varName=template;
+    elseif sum(contains(model.CoefficientNames,template)) & ~isempty(template)
+        varName = model.CoefficientNames(contains(model.CoefficientNames,template));
     else
         varName=append(template,behModels{i,1}{:});
     end

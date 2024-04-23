@@ -179,7 +179,7 @@ classdef ERSPObject < DataAnalysis
                             group=groups2plot{n};
                             s = squeeze((obj.getGroupData(group,property,'all',timeName,cIDX)));
                             figCount = figCount + 1;
-                            subplot(length(chans2plot),3,figCount) % each row is a time, columns are significant mask, then individual plots
+                            subplot(length(chans2plot),length(groups2plot),figCount) % each row is a time, columns are significant mask, then individual plots
                             imagesc(obj.info.timeAxis(timeIdx(1):timeIdx(2)),(obj.info.freqAxis),squeeze(nanmean(s,3)))
                             set(gca,'YDir','normal','FontSize',16,'YTick',yTicks,'YTickLabels',yTickLabels,'yLim',[2 30],'CLim',cRange);
                             if n==1
