@@ -3,13 +3,15 @@ addpath('scripts')
 addpath('scripts/DataAnalysis')
 addpath('scripts/DataAnalysis/functions')
 %% Loading in data and definitions
-dataPath = '';
+dataPath = 'sample.mat'; % random Data
 load(dataPath)
-project.info.experimentalDesign='twoSample';
 
 % Formatting behavior table for fitlm 
-baseModel=""; % sepcify model for fitlm
-tbl=readtable(); % read behavior table for neural behavior analysis
+%baseModel=""; % sepcify model for fitlm
+%behTbl=readtable(); % read behavior table for neural behavior analysis
+behTbl=table();
+behTbl.Subject=project.scalpData.Group1.subList';
+behTbl.behVar1=rand(1,10)';
 
 % Defining time in mS for baseline correction
 baselineTime=[-250 -50];
@@ -37,32 +39,30 @@ scalpObject = scalpObject.ScalpAnalysis(); % calcualtes all significant electrod
 %%% Transforming data 
 %func=@(x) abs(hilbert(x));
 %scalpObject = scalpObject.applyFunc(func);
-
 scalpObject = scalpObject.calSigTbl('sig'); % creating table of significant neural attributes
 
 %% Scalp Plotting
 close all
-vars2plot={'exRareg'}; freq2plot={'theta','alpha','beta'}; times2plot={'choice','imReward','cumReward'}; errorType='sem'; chans2plot={'Pz'};
+vars2plot={'NeuralVarName'}; freq2plot={'theta','alpha','beta'}; times2plot={'time1'}; errorType='sem'; chans2plot={'Pz'};
 scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2]);
 scalpObject.plotERPs('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
 scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'chans2plot',chans2plot)
 
 %% Scalp Behavior Models
-scalpObject = scalpObject.calSigTbl('sig'); % creating table of significant neural attributes
-
-time_list=fieldnames(scalpObject.info.timeRange);
-for t=1:length(time_list)
-    tbldata = scalpObject.scalpResults.sigValues.exRareg.(time_list{t}); % get table data
-    [~,tbldata] = calculate_group_means(tbldata, groups, append(time_list(t),'_',groupnames)); % only use newtable. If testing all, then use first output
-    scalpObject.scalpResults.sigValues.exRareg.(time_list{t}) = tbldata;
-end
+% scalpObject = scalpObject.calSigTbl('sig'); % creating table of significant neural attributes
+% time_list=fieldnames(scalpObject.info.timeRange);
+% for t=1:length(time_list)
+%     tbldata = scalpObject.scalpResults.sigValues.NeuralVarName.(time_list{t}); % get table data
+%     [~,tbldata] = calculate_group_means(tbldata, groups, append(time_list(t),'_',groupnames)); % only use newtable. If testing all, then use first output
+%     scalpObject.scalpResults.sigValues.exRareg.(time_list{t}) = tbldata;
+% end
 
 % behavior and neural analysis
-neuralVar={''}; % Specify here
-baseModel=""; % define model for fitlm
+neuralVar={'NeuralVarName'}; % Specify here
+baseModel="behVar1 ~ 1+ "; % define model for fitlm - automatically appends neuralVar
 keyColumnName='Subject'; % column name with subjectIds
 scalpObject=scalpObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'modelName');
-scalpObject.neuralBehMdl.ex_WS_RareG_combo_exRareg = extractp(scalpObject.neuralBehMdl.ex_WS_RareG_combo_exRareg,"group_Control:",1); % extract all p-values from fitlm
+scalpObject.neuralBehMdl.modelName_NeuralVarName = extractp(scalpObject.neuralBehMdl.modelName_NeuralVarName,"NeuralVarName",1); % extract all p-values from fitlm
 
 
 %% Source Analysis
@@ -78,10 +78,8 @@ sourceObject.plotNetwork(netwrk,vars2plot); % grouped network bar plots for spec
 sourceObject.plotBrainmap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2]); % full roi plot for specified measure
 
 %% Source Behavior Model - same format as scalp
-neuralVar={''};
-baseModel=""; 
+neuralVar={'NeuralVarName'};
+baseModel="behVar1 ~ 1+ "; % define model for fitlm - automatically appends neuralVar
 keyColumnName='Subject';
 sourceObject=sourceObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'modelName');
-sourceObject.neuralBehMdl.ex_WS_RareG_combo = extractp(sourceObject.neuralBehMdl.ex_WS_RareG_combo_exRareg,"group_Control:",0);
-
-
+sourceObject.neuralBehMdl.modelName_NeuralVarName = extractp(sourceObject.neuralBehMdl.modelName_NeuralVarName,"NeuralVarName",0);
