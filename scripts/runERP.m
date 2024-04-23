@@ -10,8 +10,9 @@ load(dataPath)
 %baseModel=""; % sepcify model for fitlm
 %behTbl=readtable(); % read behavior table for neural behavior analysis
 behTbl=table();
+rng(1234)
 behTbl.Subject=project.scalpData.Group1.subList';
-behTbl.behVar1=rand(1,10)';
+behTbl.behVar1=rand(1,10)'
 
 % Defining time in mS for baseline correction
 baselineTime=[-250 -50];
@@ -43,10 +44,10 @@ scalpObject = scalpObject.calSigTbl('sig'); % creating table of significant neur
 
 %% Scalp Plotting
 close all
-vars2plot={'NeuralVarName'}; freq2plot={'theta','alpha','beta'}; times2plot={'time1'}; errorType='sem'; chans2plot={'Pz'};
+vars2plot={'NeuralVarName'}; freq2plot={'theta','alpha','beta'}; times2plot={'time1'}; errorType='sem'; chans2plot={''};
 scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2]);
 scalpObject.plotERPs('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
-scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'chans2plot',chans2plot)
+scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
 
 %% Scalp Behavior Models
 % scalpObject = scalpObject.calSigTbl('sig'); % creating table of significant neural attributes
@@ -63,7 +64,7 @@ baseModel="behVar1 ~ 1+ "; % define model for fitlm - automatically appends neur
 keyColumnName='Subject'; % column name with subjectIds
 scalpObject=scalpObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'modelName');
 scalpObject.neuralBehMdl.modelName_NeuralVarName = extractp(scalpObject.neuralBehMdl.modelName_NeuralVarName,"NeuralVarName",1); % extract all p-values from fitlm
-
+scalpObject.neuralBehMdl.modelName_NeuralVarName
 
 %% Source Analysis
 % repeat general processing steps

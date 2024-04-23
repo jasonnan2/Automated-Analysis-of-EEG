@@ -247,8 +247,8 @@ classdef ScalpObject < DataAnalysis
             %                        to plot. Default is to plot all
             %                        time ranges
             %         'chans2plot'   cell array of channels in the object
-            %                        to plot. Default is to plot all
-            %                        channels
+            %                        to plot. Default is to plot
+            %                        significant channels
             %         'groups'       cell array of groups in the object
             %                        to plot. Default is to plot all
             %                        groups. Can also be used to rearrange
@@ -263,7 +263,7 @@ classdef ScalpObject < DataAnalysis
             for p=1:length(vars2plot)
                 property=vars2plot{p};
                 time_list = intersect(fieldnames(sigElectrodes.(property)),times2plot);
-                figure
+                
                 for t=1:length(time_list)
 
                     timeName=time_list{t};
@@ -281,21 +281,21 @@ classdef ScalpObject < DataAnalysis
                     end
 
                     if ~isempty(freq_list)
-                        %figure
+                        figure
                         for f=1:length(freq_list)
                             chan_list = intersect(chans2plot,sig.(freq_list{f}));
-                            if length(chan_list)<length(chans2plot)
-                                chan_list=chans2plot;
-                            end
+%                             if length(chan_list)<length(chans2plot)
+%                                 chan_list=chans2plot;
+%                             end
 
                             for c=1:length(chan_list)
                                 
                                 if length(freq_list)==1
                                     maxLength=length(chan_list);
                                 end
-                                subplot(1,3,t)
+                                
                                 %subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
-                                %subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f);
+                                subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f);
 
                                 freq=freq_list{f};
                                 chan=chan_list{c};
