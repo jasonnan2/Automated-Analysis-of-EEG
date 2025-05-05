@@ -212,4 +212,39 @@ Source localized brain maps showing regions of significant differences between t
 
 ## Other Features
 1. More functionality found in the source code
-2. Can be run for any number of groups, variables, frequency bands, and time ranges. 
+2. Can be run for any number of groups, variables, frequency bands, and time ranges.
+
+## 📄 License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+
+## 📖 Citation
+
+If you use this work, please cite:
+
+> Nan, J., et al. (2025). *Climate trauma from wildfire exposure impacts cognitive decision-making*. Scientific Reports.  
+> [https://doi.org/10.1038/s41598-025-94672-0](https://doi.org/10.1038/s41598-025-94672-0)
+
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
+@article{nan2025,
+  author    = {Nan, Jason and others},
+  title     = {Title of the paper},
+  journal   = {Scientific Reports},
+  year      = {2025},
+  volume    = {},
+  number    = {},
+  pages     = {},
+  doi       = {10.1038/s41598-025-94672-0}
+}
+
+
+
+
+
+
+
+
+
