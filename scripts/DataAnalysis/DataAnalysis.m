@@ -1,7 +1,4 @@
 classdef DataAnalysis
-    %%% TODO %%%
-    % Add in option for paired or 2 sample ttest
-    % Add in option to choose what pairings to run 
     properties
         info
         neuralBehMdl
@@ -342,10 +339,13 @@ classdef DataAnalysis
         end
 
         % Function to calculate which electrodes are significant btw two groups
-        function [pvals,stats]=calGroupSig(s1,s2,experimentalDesign)
+        function [pvals,stats]=calGroupSig(s1,s2,experimentalDesign, isnormal)
             % s1 and s2 are data matrices size C channels x N subjects
             % experimentalDesign is string for 'paired' or 'twoSample'
             % Perform t-tests
+            if nargin<4
+                isnormal=1; % default to ttest
+            end
 
             s1=squeeze(s1);
             s2=squeeze(s2);
@@ -359,11 +359,20 @@ classdef DataAnalysis
             
             for chan = 1:size(s1,1)
                 % Get non-NaN indices
-                if strcmp(experimentalDesign,'paired')
-                    [~,pvals(chan),~,stats(chan)] = ttest(s1(chan,:), s2(chan,:));
-                elseif strcmp(experimentalDesign,'twoSample')
-                    [~,pvals(chan),~,stats(chan)] = ttest2(s1(chan,:), s2(chan,:));
+                if isnormal
+                    if strcmp(experimentalDesign,'paired')
+                        [~,pvals(chan),~,stats(chan)] = ttest(s1(chan,:), s2(chan,:));
+                    elseif strcmp(experimentalDesign,'twoSample')
+                        [~,pvals(chan),~,stats(chan)] = ttest2(s1(chan,:), s2(chan,:));
+                    end
+                elseif ~isnormal
+                    if strcmp(experimentalDesign,'paired')
+                        [pvals(chan),~,stats(chan)] = signrank(s1(chan,:), s2(chan,:));
+                    elseif strcmp(experimentalDesign,'twoSample')
+                        [pvals(chan),~,stats(chan)] = ranksum(s1(chan,:), s2(chan,:));
+                    end
                 end
+
                 if isnan(pvals(chan))
                     disp('asdfawrsasdbaweasbas')
                     waitforbuttonpress

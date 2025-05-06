@@ -2,6 +2,7 @@ classdef SourceObject < DataAnalysis
     properties
         DATA
         sourceResults
+        netConnectivity
     end
     methods
         function obj = SourceObject(DATA, info, baselineTime, timeRange)
@@ -48,7 +49,6 @@ classdef SourceObject < DataAnalysis
                                 s1(i,:) = squeeze(nanmean(nanmean(obj.getGroupData(group1,property,freq,timeName,netwrk(i).roi),2),3));
                                 s2(i,:) = squeeze(nanmean(nanmean(obj.getGroupData(group2,property,freq,timeName,netwrk(i).roi),2),3));
                             end
-                            %[~,pvals(comb,:)] = ttest2(s1, s2);
                             pvals(comb,:)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign);
 
                             group1Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 1)-1) * groupwidth / (2*nbars);
@@ -72,9 +72,22 @@ classdef SourceObject < DataAnalysis
                 Lgnd.Position(2) = 0.9;
                 sgtitle(property)
             end
-
         end
+
         function obj=SourceAnalysis(obj)
+
+            % Outputs:
+            %
+            %   Results are saved into the following fields of the input object `obj`:
+            %
+            %   - obj.sourceResults.sigROIsP.(property).(timeName).(group1_group2).(freq)
+            %       Raw p-values for group comparisons at each ROI.
+            %       These are not FDR-corrected.
+            %
+            %   - obj.sourceResults.sigROIs.(property).(timeName).(freq)
+            %       significance rois for each comparison
+            %       These are not FDR-corrected
+
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
             combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
@@ -117,7 +130,9 @@ classdef SourceObject < DataAnalysis
             
             %   [...] = plotBrainmap(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
             %   parameters and their values. Will only plot conditions that satisfy 
-            %   all conditions specified. Default run will plot all combinations
+            %   all conditions specified. Default run will plot all
+            %   combinations. Plots shown are masked by fdr correction
+            %   across brain region. 
             %   Valid parameters are the following:
             %
             %        Parameter  Value
@@ -136,11 +151,15 @@ classdef SourceObject < DataAnalysis
             %                        comparisons on.
             %                        ex: [1,2] will do groups 1 vs 2
             %                            [1,2;1,3] is 1 vs 2 and 1 vs 3
+            %         'FDRflag'      1/0 flag for plotting fdr corrected p-values correcting
+            %                        within each scalp map (# electrodes)
+            %                        Default is 1 (plot corrected values).
+            
             
             N = length(obj.info.groupNames);
-            pnames = {'vars2plot','freq2plot','times2plot','combinations'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2) };
-            [vars2plot,freq_list,timeNames,combinations] = parseArgs(pnames,dflts,varargin{:});
+            pnames = {'vars2plot','freq2plot','times2plot','combinations','FDRflag'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2),1 };
+            [vars2plot,freq_list,timeNames,combinations,FDRflag] = parseArgs(pnames,dflts,varargin{:});
             
             hm = headModel.loadFromFile('headModel_templateFile_newPEBplus.mat');
             T = hm.indices4Structure(hm.atlas.label);
@@ -161,6 +180,12 @@ classdef SourceObject < DataAnalysis
                             pvals(:,f)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values 
                             plotdata(:,f)=nanmean(s2,2)-nanmean(s1,2); % average across subjects and subtract
                         end
+                        if FDRflag
+                            for correctF = 1:size(pvals,2)
+                                pvals(:,correctF) = fdr(pvals(:,f));
+                            end
+                        end
+
                         %plotdata(pvals>0.05)=0; % Uncorrected p-value thresholding only for PostPre difference condition
                         tohide = T'*(pvals>0.05);
                         X=T'*plotdata;
@@ -172,7 +197,205 @@ classdef SourceObject < DataAnalysis
                 end
             end
         end
-        
+        function obj = calConnectivity(obj,netwrk,method)
+            % calculateConnectivity Compute functional connectivity between brain regions or networks
+            %
+            %   connMatrix = calculateConnectivity(data, method, roiLabels, networkLabels)
+            %
+            %   This function computes connectivity using one of two approaches:
+            %     1. 'avg_roi' method:
+            %         - Compute ROI-to-ROI connectivity matrix
+            %         - Apply Fisher Z-transform
+            %         - Average connectivity within each network
+            %         - Convert back to connectivity values
+            %     2. 'network' method:
+            %         - Average ROI time series within each network
+            %         - Compute network-to-network connectivity directly
+            %         - Intra-network connectivity defaults to ROI-to-ROI method
+            %
+            %   Inputs:
+            %     obj            - SourceObject
+            %     method         - 'roi' or 'network'
+            %
+            %   Notes:
+            %     - Intra-network connectivity is always computed using ROI-level method
+            %     - Assumes data has been preprocessed (e.g., detrended, filtered)
+            
+            properties=obj.info.variables;
+            timeNames = fieldnames(obj.info.timeRange);
+            N = length(obj.info.groupNames);
+            combinations = nchoosek(1:N,2);
+            
+            if ~isfield(obj.info,'netwrk')
+                obj.info.netwrk=netwrk;
+            end
+            obj.info.netConnectivity_Method=method;
+            
+            for p=1:length(properties)
+                property=properties{p};
+                
+                for t=1:length(timeNames)
+                    timeName=timeNames{t};
+                    timeIdx = obj.info.timeIDX.(timeName);
+                    for f = 1:length(obj.info.freq_list)
+                        freq=obj.info.freq_list{f};
+                        % Generating plot data
+                        data=[];
+                        for n=1:N % iterates through groups
+                            groupdata = squeeze(getGroupData(obj,obj.info.groupNames{n},property,freq,timeName)); % size roi x time x sub
+                            all_sub_net=[];
+                            for sub=1:size(groupdata,3)
+                                subdata = squeeze(groupdata(:,:,sub)); % size roi x time
+                                net_mat=[];
+                                for a =  1:length(netwrk)
+                                    for b = 1:length(netwrk)
+               
+                                        if a==b | strcmp(method,'roi') % intra network connectivity by averaging roi
+                                            netrois=netwrk(a).roi;
+                                            intraR_mat=corr(subdata(netrois,:)','rows','complete','Type','Spearman'); 
+                                            intraFisherz=atanh(intraR_mat);
+                                            intraFisherz(intraFisherz==inf)=nan;
+                                            net_mat(a,b) = tanh(nanmean(intraFisherz,'all'));
+                                        elseif strcmp(method,'net')
+                                            net1=netwrk(a).roi;
+                                            net2=netwrk(b).roi;
+                                            net1Data = nanmean(subdata(net1,:));
+                                            net2Data = nanmean(subdata(net2,:));
+                                            net_mat(a,b)=corr(net1Data',net2Data','rows','complete','Type','Spearman');
+                                        else 
+                                            error("Connectivity Method must be 'roi' or 'net'")
+                                        end
+                                    end
+                                end
+                                all_sub_net(:,:,sub)=net_mat;
+                            end
+                            obj.netConnectivity.(obj.info.groupNames{n}).(property).(timeNames{t}).(obj.info.freq_list{f}) = all_sub_net;
+                        end
+                    end
+                end
+            end
+        end
+        function analyzeNetConnectivity(obj,varargin)
+            %   [...] = analyzeNetConnectivity(...,'PARAM1',VAL1,'PARAM2',VAL2,...)
+            %   Plots and anlyzes network connectivity data. Must run calConnectivity()
+            %   first. Each dataset will generate 3 plots, group 1, group 2, and
+            %   group1-group2. Individual groups will test connectivity wrt 0.
+            %   Group1-group2 will test differences between groups.
+            %   Normality test will determine if ttest/ttest2 or signrank/ranksum
+            %
+            %   Specifies additional parameters and their values. 
+            %   Will only plot conditions that satisfy all conditions specified. 
+            %   Default run will plot all combinations
+            
+            %   Valid parameters are the following:
+            %
+            %        Parameter  Value
+            %         'vars2plot'    cell array of variables in the object
+            %                        to plot. Default is to plot all
+            %                        variables
+            %                  
+            %         'freq2plot'    cell array of frequencies in the object
+            %                        to plot. Default is to plot all
+            %                        frequencies
+            %                   
+            %         'times2plot'   cell array of time ranges in the object
+            %                        to plot. Default is to plot all
+            %                        time ranges
+            %         'combinations' 2D matrix defining which groups to run
+            %                        comparisons on.
+            %                        ex: [1,2] will do groups 1 vs 2
+            %                            [1,2;1,3] is 1 vs 2 and 1 vs 3
+            %         'FDRflag'      1/0 flag for plotting fdr corrected p-values correcting
+            %                        within each scalp map (# electrodes)
+            %                        Default is 1 (plot corrected values).
+            
+            N = length(obj.info.groupNames);
+            pnames = {'vars2plot','freq2plot','times2plot','combinations','FDRflag'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2),1};
+            [vars2plot,freq_list,timeNames,combinations, FDRflag] = parseArgs(pnames,dflts,varargin{:});
+            netwrk=obj.info.netwrk;
+            % Get all Data
+            all_data=[];
+            for p=1:length(vars2plot)
+                property=vars2plot{p};
+                for t=1:length(timeNames)
+                    timeName=timeNames{t};
+                    for f = 1:length(obj.info.freq_list)
+                        freq=obj.info.freq_list{f};
+                        for comb = unique(combinations)
+                            groupName=obj.info.groupNames{comb};
+                            tempData = obj.netConnectivity.(groupName).(property).(timeName).(freq);
+            
+                            all_data = [all_data reshape(tempData,1,[])];
+                        end
+                    end
+                end
+            end
+            
+            isnormal = ~adtest(atanh(all_data));
+            
+            for p=1:length(vars2plot)
+                property=vars2plot{p};
+            
+                for t=1:length(timeNames)
+                    timeName=timeNames{t};
+                    figure
+                    count=1;
+                    subplot = @(m,n,p) subtightplot (m, n, p, [0.1 0.1], [0.1 0.1], [0.1 0.1]);
+            
+            
+                    for comb = 1:size(combinations, 1)
+                            group1=obj.info.groupNames{combinations(comb, 1)};
+                            group2=obj.info.groupNames{combinations(comb, 2)};
+                            
+                        for f = 1:length(obj.info.freq_list)
+                            freq=obj.info.freq_list{f};
+                            s1 = squeeze(obj.netConnectivity.(group1).(property).(timeName).(freq));
+                            s2 = squeeze(obj.netConnectivity.(group2).(property).(timeName).(freq));
+                            pvalsDiff=[];
+                            for a=1:size(s1,1)
+                                pvalsDiff(:,a)=obj.calGroupSig(squeeze(atanh(s1(a,:,:))),squeeze(atanh(s2(a,:,:))),obj.info.experimentalDesign,isnormal);
+                                pvals1(:,a) = obj.calGroupSig(squeeze(atanh(s1(a,:,:))),zeros(size(s1,[2,3])),'paired',isnormal);
+                                pvals2(:,a) = obj.calGroupSig(squeeze(atanh(s2(a,:,:))),zeros(size(s2,[2,3])),'paired',isnormal);
+                            end
+            
+            
+                            if FDRflag==1
+                                pvalsDiff = fdr_matCorrect(pvalsDiff);
+                                pvals1 = fdr_matCorrect(pvals1);
+                                pvals2 = fdr_matCorrect(pvals2);
+                            end
+            
+                            subplot(length(obj.info.freq_list),3,count)
+                            plotNetConn(tanh(nanmean(atanh(s1),3)), pvals1,netwrk)
+                            
+                            count=count+1;
+            
+                            if f==1
+                                title(group1)
+                            end
+            
+                            ylabel(freq,'fontweight','bold','fontsize',12)
+            
+                            subplot(length(obj.info.freq_list),3,count)
+                            plotNetConn(tanh(nanmean(atanh(s2),3)), pvals1,netwrk)
+                            count=count+1;
+                            if f==1
+                                title(group2)
+                            end
+            
+                            subplot(length(obj.info.freq_list),3,count)
+                            plotNetConn(tanh(nanmean(atanh(s2)-atanh(s1),3)), pvalsDiff,netwrk)
+                            count=count+1;
+                            if f==1
+                                title(group2 + "-" + group1)
+                            end
+                        end
+                    end
+                    sgtitle(property+" "+timeName)
+                end
+            end
+        end
         %--------------END OF CLASS METHODS-----------------------%
     end
     %--------------END OF CLASS-----------------------%

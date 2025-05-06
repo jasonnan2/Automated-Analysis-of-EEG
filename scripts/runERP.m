@@ -3,7 +3,7 @@ addpath('scripts')
 addpath('scripts/DataAnalysis')
 addpath('scripts/DataAnalysis/functions')
 %% Loading in data and definitions
-dataPath = 'sample.mat'; % random Data
+dataPath = 'sample.mat'; % random sample data
 load(dataPath)
 
 % Formatting behavior table for fitlm 
@@ -36,16 +36,17 @@ van=[2 47 48 63 64];netwrk(8).name='VAN';netwrk(8).roi=van;
 scalpObject=ScalpObject(project.scalpData, project.info, baselineTime, timeRange); % Initialize scalp processing
 scalpObject = scalpObject.cleanDatasets(); % remove any missing subjects if any from Scalp data
 scalpObject = scalpObject.standardProcessing(); % standard processing pipeline, 5SD outlier, baseline correction
-scalpObject = scalpObject.ScalpAnalysis(); % calcualtes all significant electrodes between groups across all conditions
-%%% Transforming data 
+%%% Transforming data - optional
 %func=@(x) abs(hilbert(x));
 %scalpObject = scalpObject.applyFunc(func);
+scalpObject = scalpObject.ScalpAnalysis(); % calcualtes all significant electrodes between groups across all conditions
+
 scalpObject = scalpObject.calSigTbl('sig'); % creating table of significant neural attributes
 
 %% Scalp Plotting
 close all
-vars2plot={'NeuralVarName'}; freq2plot={'theta','alpha','beta'}; times2plot={'time1'}; errorType='sem'; chans2plot={''};
-scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2]);
+vars2plot={'NeuralVarName'}; freq2plot={'theta','alpha','beta'}; times2plot={'time1'}; errorType='sem'; chans2plot={''}; FDRflag=0;
+scalpObject.plotScalpMap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2],'FDRflag',FDRflag);
 scalpObject.plotERPs('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
 scalpObject.plotScalpBar('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot)
 
@@ -73,10 +74,12 @@ sourceObject = sourceObject.cleanDatasets();
 sourceObject = sourceObject.standardProcessing();
 sourceObject = sourceObject.SourceAnalysis();
 sourceObject = sourceObject.calSigTbl();
+sourceObject = sourceObject.calConnectivity(netwrk,'net');
 
 %% Source Plotting
 sourceObject.plotNetwork(netwrk,vars2plot); % grouped network bar plots for specified measure
-sourceObject.plotBrainmap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2]); % full roi plot for specified measure
+sourceObject.plotBrainmap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2],'FDRflag',FDRflag); % full roi plot for specified measure
+sourceObject.analyzeNetConnectivity('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2],'FDRflag',FDRflag)
 
 %% Source Behavior Model - same format as scalp
 neuralVar={'NeuralVarName'};

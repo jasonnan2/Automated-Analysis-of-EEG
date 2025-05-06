@@ -14,7 +14,20 @@ classdef ScalpObject < DataAnalysis
         function obj=ScalpAnalysis(obj)
             % obj=ScalpAnalysis(obj)
             % runs all comparisons between groups in scalp space
-            
+
+            % Outputs:
+            %
+            %   Results are saved into the following fields of the input object `obj`:
+            %
+            %   - obj.scalpResults.sigElectrodesP.(property).(timeName).(group1_group2).(freq)
+            %       Raw p-values for group comparisons at each electrode.
+            %       These are not FDR-corrected.
+            %
+            %   - obj.scalpResults.sigElectrodes.(property).(timeName).(freq)
+            %       Significance results across electrodes 
+            %       These are not FDR-corrected
+
+
             properties=obj.info.variables;
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
@@ -37,7 +50,7 @@ classdef ScalpObject < DataAnalysis
                             %obj.scalpResults.sigElectrodesStats.(property).(timeNames{t}).(append(group1,"_",group2)).(obj.info.freq_list{f})=stats;
 
                             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
-
+%                             fdrP = fdr(pvals);
                             chans2add = chanlabels(pvals<0.05); % significant channels to add to list
 
                             % Check if the field already exists
@@ -81,11 +94,15 @@ classdef ScalpObject < DataAnalysis
             %                        comparisons on.
             %                        ex: [1,2] will do groups 1 vs 2
             %                            [1,2;1,3] is 1 vs 2 and 1 vs 3
+            %         'FDRflag'      1/0 flag for plotting fdr corrected p-values correcting
+            %                        within each scalp map (# electrodes)
+            %                        Default is 1 (plot corrected values).
             
             N = length(obj.info.groupNames);
-            pnames = {'vars2plot','freq2plot','times2plot','combinations'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2) };
-            [vars2plot,freq_list,timeNames,combinations] = parseArgs(pnames,dflts,varargin{:});
+            pnames = {'vars2plot','freq2plot','times2plot','combinations','FDRflag'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2),1 };
+            [vars2plot,freq_list,timeNames,combinations, FDRflag] = parseArgs(pnames,dflts,varargin{:});
+            
 
             for p=1:length(vars2plot)
                 property=vars2plot{p}; % get property name
@@ -107,7 +124,9 @@ classdef ScalpObject < DataAnalysis
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
                             pvals=obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values
-
+                            if FDRflag
+                                pvals = fdr(pvals);
+                            end
                             plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
                             if t==1
                                 title(freq_list{f})
@@ -123,8 +142,10 @@ classdef ScalpObject < DataAnalysis
         end
         
         function plotERPs(obj,varargin)
-            %   [...] = plotERPs(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
-            %   parameters and their values.  Valid parameters are the following:
+            %   [...] = plotERPs(...,'PARAM1',VAL1,'PARAM2',VAL2,...)
+            %   Plots overlayed ERPs between groups. Non-FDR corrected mask
+            %   Specifies additional parameters and their values.
+            %   Valid parameters are the following:
             %
             %        Parameter  Value
             %         'vars2plot'    cell array of variables in the object
@@ -140,6 +161,9 @@ classdef ScalpObject < DataAnalysis
             %                        time ranges
             %         'chans2plot'   cell array of channels to plot.
             %                        Default is all significant ones
+            %         'FDRflag'      1/0 flag for plotting fdr corrected p-values correcting
+            %                        within each scalp map (# electrodes)
+            %                        Default is 0 (plot uncorrected values).
             %
             %         'errorType'    string value of the type of error to
             %                        plot. choices are 'none','sem', and
@@ -147,10 +171,11 @@ classdef ScalpObject < DataAnalysis
             %         'color_list'   cell array to determine colors
             %                        default is {'g','b','r'}
 
+
             N=length(obj.info.groupNames);
-            pnames = {'vars2plot','freq2plot','times2plot','chans2plot','errorType','color_list'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),'all','none',{'g','b','r'}};
-            [vars2plot,freq2plot,times2plot,chans2plot,errorType,color_list] = parseArgs(pnames,dflts,varargin{:});
+            pnames = {'vars2plot','freq2plot','times2plot','chans2plot','FDRflag','errorType','color_list'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),'all',0,'none',{'g','b','r'}};
+            [vars2plot,freq2plot,times2plot,chans2plot, FDRflag,errorType,color_list] = parseArgs(pnames,dflts,varargin{:});
             if ~ismember(errorType, {'none', 'sem', '95CI'})
                 error('Invalid value for errorType. Allowed values are ''none'', ''sem'', and ''95CI''.');
             end
@@ -168,7 +193,7 @@ classdef ScalpObject < DataAnalysis
                     freq_list=freq2plot(sort(ib));
 
                     if isequal(chans2plot,'all')
-                        chan_list = sig.(freq_list{f});
+                        
                         % Get max length of all frequencies in one view
                         maxLength = 0;
                         for i = 1:length(freq_list)
@@ -188,7 +213,7 @@ classdef ScalpObject < DataAnalysis
                     if ~isempty(freq_list)
 %                         figure
                         for f=1:length(freq_list)
-
+                            chan_list = sig.(freq_list{f});
                             for c=1:length(chan_list)
 
                                 %subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
@@ -203,6 +228,9 @@ classdef ScalpObject < DataAnalysis
                                 hold on
                                 h = gobjects(N, 1); % Preallocate an array for the line handles
                                 for n=1:N
+
+                                    obj.getGroupData(group1,property,freq,timeName)
+                                    
                                     d=obj.DATA.(obj.info.groupNames{n}).(property)(freqIdx,elecIdxs,timeIdx(1):timeIdx(2),:);
                                     data(:,n) = squeeze(nanmean(d,4));
                                     CI=[];
@@ -245,8 +273,11 @@ classdef ScalpObject < DataAnalysis
             end
         end
         function plotScalpBar(obj,varargin)
-            %   [...] = plotScalpBar(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
-            %   parameters and their values.  Valid parameters are the following:
+            %   [...] = plotScalpBar(...,'PARAM1',VAL1,'PARAM2',VAL2,...) 
+            %   Plots grouped bar plots which are significantly different. 
+            %   Non-FDR corrected pvalues. 
+            %   specifies additional parameters and their values.  
+            %   Valid parameters are the following:
             %
             %        Parameter  Value
             %         'vars2plot'    cell array of variables in the object
@@ -367,6 +398,29 @@ end
 
 %% Plotting scalpmap with significant electrodes
 function plotSigTopo(s1,s2,chanlocs,pvals, key)
+% plotSigTopo  Plot a topographic map of EEG channel differences with significant electrodes
+%
+%   plotSigTopo(s1, s2, chanlocs, pvals, key) computes and plots the
+%   difference in EEG signal between two conditions (s2 - s1) across channels.
+%   Electrodes with p < 0.05 are labeled using the provided key.
+%
+%   Inputs:
+%       s1       - (channels x subjects) data matrix for condition 1
+%       s2       - (channels x subjects) data matrix for condition 2
+%       chanlocs - EEGLAB-style structure of channel locations
+%       pvals    - Vector of p-values for each channel
+%       key      - Cell array of markers to indicate sig vs no sig. ie:
+%                  {'*','.')
+%
+%   This function:
+%       - Computes average difference between s2 and s1
+%       - Masks and labels significant electrodes (p < 0.05)
+%       - Plots scalp topography using EEGLAB's topoplot
+%
+%   Example:
+%       plotSigTopo(data1, data2, EEG.chanlocs, pvals, EEG.chanlabels)
+
+
     %[~,p]=fdr(reshape(p,[1,numel(p)]),0.05);
     mask=key((pvals<0.05)+1);
     [chanlocs.labels]=mask{:};
