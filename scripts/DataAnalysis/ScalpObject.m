@@ -11,71 +11,38 @@ classdef ScalpObject < DataAnalysis
             obj.DATA=DATA;
         end
         
-        function obj=ScalpAnalysis(obj)
+        function obj=calChanData(obj)
             % obj=ScalpAnalysis(obj)
-            % runs all comparisons between groups in scalp space
-
-            % Outputs:
-            %
-            %   Results are saved into the following fields of the input object `obj`:
-            %
-            %   - obj.scalpResults.sigElectrodesP.(property).(timeName).(group1_group2).(freq)
-            %       Raw p-values for group comparisons at each electrode.
-            %       These are not FDR-corrected.
-            %
-            %   - obj.scalpResults.sigElectrodes.(property).(timeName).(freq)
-            %       Significance results across electrodes 
-            %       These are not FDR-corrected
-
+            % Calculates all channel data in time windows specified and
+            % saves into
+            % obj.scalpResults.chanData.(group).(property).(time).(freq)
 
             properties=obj.info.variables;
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
-            combinations = nchoosek(1:N,2); % This will give you a matrix where each row is a combination of two groups
 
             for p=1:length(properties)
                 property=properties{p}; % get property name
-                for comb = 1:size(combinations, 1)
-                    group1=obj.info.groupNames{combinations(comb, 1)};
-                    group2=obj.info.groupNames{combinations(comb, 2)};
+                for n = 1:N
+                    group=obj.info.groupNames{n};
                     for t=1:length(timeNames)
                         timeName=timeNames{t};
                         for f=1:length(obj.info.freq_list)
                             freq=obj.info.freq_list{f};
-
-                            s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
-                            s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
-                            [pvals, stats] =obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values
-                            obj.scalpResults.sigElectrodesP.(property).(timeNames{t}).(append(group1,"_",group2)).(obj.info.freq_list{f})=pvals;
-                            %obj.scalpResults.sigElectrodesStats.(property).(timeNames{t}).(append(group1,"_",group2)).(obj.info.freq_list{f})=stats;
-
-                            chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
-%                             fdrP = fdr(pvals);
-                            chans2add = chanlabels(pvals<0.05); % significant channels to add to list
-
-                            % Check if the field already exists
-                            if isfield(obj.scalpResults, 'sigElectrodes') && isfield(obj.scalpResults.sigElectrodes, property) && ...
-                                isfield(obj.scalpResults.sigElectrodes.(property), timeNames{t}) && isfield(obj.scalpResults.sigElectrodes.(property).(timeNames{t}), obj.info.freq_list{f})
-                                % Get the existing cell array
-                                existingArray = obj.scalpResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f});
-                                % Check if the new letter is different from the existing ones
-                                chans2add = setdiff(chans2add, existingArray);
-                                obj.scalpResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f}) = [existingArray, chans2add];
-                            elseif ~isempty(chans2add)
-                                % Create a new cell array with the new letter
-                                obj.scalpResults.sigElectrodes.(property).(timeNames{t}).(obj.info.freq_list{f}) = chans2add;
-                            end
+                            data = squeeze(nanmean(obj.getGroupData(group,property,freq,timeName),3));
+                            obj.scalpResults.chanData.(obj.info.groupNames{n}).(property).(timeNames{t}).(obj.info.freq_list{f}) = data;
                         end
                     end
                 end
             end
         end
         
-        function plotScalpMap(obj,varargin)
+        function obj=analyzeScalp(obj,varargin)
             
-            %   [...] = plotERPs(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
-            %   parameters and their values. Will only plot conditions that satisfy 
-            %   all conditions specified. Default run will plot all combinations
+            %   [...] = analyzeScalp(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
+            %   parameters and their values. Will only analyze conditions that satisfy 
+            %   all conditions specified. Default run will do all
+            %   combinations. Option to plot scalp topo plots
             %   Valid parameters are the following:
             %
             %        Parameter  Value
@@ -94,25 +61,55 @@ classdef ScalpObject < DataAnalysis
             %                        comparisons on.
             %                        ex: [1,2] will do groups 1 vs 2
             %                            [1,2;1,3] is 1 vs 2 and 1 vs 3
-            %         'FDRflag'      1/0 flag for plotting fdr corrected p-values correcting
+            %         'FDRflag'      1/0 flag for fdr corrected p-values 
             %                        within each scalp map (# electrodes)
-            %                        Default is 1 (plot corrected values).
+            %                        Default is 1 (fdr corrected values).
+            %         'toPlot'       1/0 flag for plotting scalp topo
+            %                        plots. Default is 1
+            %         'isnormal'    'auto' 1 0 |
+            %                        indicates distribution of the data for
+            %                        significance testing. normal (1 flag) will use
+            %                        ttest/ttest2. not normal (0 flag) will
+            %                        use signrank/ranksum test. 'auto' will
+            %                        determine if the data is normal with
+            %                        adtest. 'auto' is default.
             
             N = length(obj.info.groupNames);
-            pnames = {'vars2plot','freq2plot','times2plot','combinations','FDRflag'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2),1 };
-            [vars2plot,freq_list,timeNames,combinations, FDRflag] = parseArgs(pnames,dflts,varargin{:});
+            pnames = {'vars2plot','freq2plot','times2plot','combinations','FDRflag','toPlot','isnormal'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2),1,1,'auto'};
+            [vars2plot,freq_list,timeNames,combinations, FDRflag,toPlot,isnormal] = parseArgs(pnames,dflts,varargin{:});
             
-
+            % normality test
+            if strcmp(isnormal,'auto')
+                % Get all Data
+                all_data=[];
+                for p=1:length(vars2plot)
+                    property=vars2plot{p};
+                    for t=1:length(timeNames)
+                        timeName=timeNames{t};
+                        for f = 1:length(obj.info.freq_list)
+                            freq=obj.info.freq_list{f};
+                            for comb = unique(combinations)
+                                groupName=obj.info.groupNames{comb};
+                                tempData = obj.scalpResults.chanData.(groupName).(property).(timeName).(freq);
+                                all_data = [all_data reshape(tempData,1,[])];
+                            end
+                        end
+                    end
+                end
+                isnormal = ~adtest(all_data);
+            end
+            obj.scalpResults.isnormal=isnormal;
             for p=1:length(vars2plot)
                 property=vars2plot{p}; % get property name
                 for comb = 1:size(combinations, 1)
 
                     group1=obj.info.groupNames{combinations(comb, 1)};
                     group2=obj.info.groupNames{combinations(comb, 2)};
-
-                    figure
-                    figCount=0;
+                    if toPlot
+                        figure
+                        figCount=0;
+                    end
                     for t=1:length(timeNames)
                         timeName=timeNames{t};
                         
@@ -123,20 +120,26 @@ classdef ScalpObject < DataAnalysis
                             subplot(length(timeNames),length(freq_list),figCount)
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
-                            pvals=obj.calGroupSig(s1,s2,obj.info.experimentalDesign); % get 1x n channel of p values
+                            [pvals]=obj.calGroupSig(s1,s2,obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
                             if FDRflag
                                 pvals = fdr(pvals);
                             end
-                            plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
-                            if t==1
-                                title(freq_list{f})
-                            end
-                            if f==1
-                                text(-1,-.2, timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
+
+                            obj = addScalpSig(obj,property, timeName, append(group1,"_",group2), freq, pvals); 
+                            if toPlot
+                                plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
+                                if t==1
+                                    title(freq_list{f})
+                                end
+                                if f==1
+                                    text(-1,-.2, timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
+                                end
                             end
                         end
                     end
-                    sgtitle(property+" "+group2+"-"+group1)
+                    if toPlot
+                        sgtitle(property+" "+group2+"-"+group1)
+                    end
                 end
             end
         end
@@ -161,9 +164,6 @@ classdef ScalpObject < DataAnalysis
             %                        time ranges
             %         'chans2plot'   cell array of channels to plot.
             %                        Default is all significant ones
-            %         'FDRflag'      1/0 flag for plotting fdr corrected p-values correcting
-            %                        within each scalp map (# electrodes)
-            %                        Default is 0 (plot uncorrected values).
             %
             %         'errorType'    string value of the type of error to
             %                        plot. choices are 'none','sem', and
@@ -173,9 +173,9 @@ classdef ScalpObject < DataAnalysis
 
 
             N=length(obj.info.groupNames);
-            pnames = {'vars2plot','freq2plot','times2plot','chans2plot','FDRflag','errorType','color_list'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),'all',0,'none',{'g','b','r'}};
-            [vars2plot,freq2plot,times2plot,chans2plot, FDRflag,errorType,color_list] = parseArgs(pnames,dflts,varargin{:});
+            pnames = {'vars2plot','freq2plot','times2plot','chans2plot','errorType','color_list'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),'all','none',{'g','b','r'}};
+            [vars2plot,freq2plot,times2plot,chans2plot,errorType,color_list] = parseArgs(pnames,dflts,varargin{:});
             if ~ismember(errorType, {'none', 'sem', '95CI'})
                 error('Invalid value for errorType. Allowed values are ''none'', ''sem'', and ''95CI''.');
             end
@@ -208,10 +208,7 @@ classdef ScalpObject < DataAnalysis
                     end
 
                     % get longest electrode map
-                    
-
                     if ~isempty(freq_list)
-%                         figure
                         for f=1:length(freq_list)
                             chan_list = sig.(freq_list{f});
                             for c=1:length(chan_list)
@@ -228,10 +225,7 @@ classdef ScalpObject < DataAnalysis
                                 hold on
                                 h = gobjects(N, 1); % Preallocate an array for the line handles
                                 for n=1:N
-
-                                    obj.getGroupData(group1,property,freq,timeName)
-                                    
-                                    d=obj.DATA.(obj.info.groupNames{n}).(property)(freqIdx,elecIdxs,timeIdx(1):timeIdx(2),:);
+                                    d=obj.getGroupData(obj.info.groupNames{n},property,freq,time,elecIdxs);
                                     data(:,n) = squeeze(nanmean(d,4));
                                     CI=[];
                                     sem=std(squeeze(d),0,2)/sqrt(size(d,4));
@@ -388,6 +382,37 @@ classdef ScalpObject < DataAnalysis
                         sgtitle(strcat(property,'-',timeName))
                     end
                 end
+            end
+        end
+
+        function obj = addScalpSig(obj,property, timeName, groupDiff, freq, pvals)
+            % Outputs:
+            %
+            %   Results are saved into the following fields of the input object `obj`:
+            %
+            %   - obj.scalpResults.sigElectrodesP.(property).(timeName).(group1_group2).(freq)
+            %       Raw p-values for group comparisons at each electrode.
+            %       These are not FDR-corrected.
+            %
+            %   - obj.scalpResults.sigElectrodes.(property).(timeName).(freq)
+            %       Significance results across electrodes 
+            %       These are not FDR-corrected
+            obj.scalpResults.sigElectrodesP.(property).(timeName).(groupDiff).(freq)=pvals;
+    
+            chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
+            chans2add = chanlabels(pvals<0.05); % significant channels to add to list
+    
+            % Check if the field already exists
+             if isfield(obj.scalpResults, 'sigElectrodes') && isfield(obj.scalpResults.sigElectrodes, property) && ...
+                isfield(obj.scalpResults.sigElectrodes.(property), timeName) && isfield(obj.scalpResults.sigElectrodes.(property).(timeName), freq)
+                % Get the existing cell array
+                existingArray = obj.scalpResults.sigElectrodes.(property).(timeName).(freq);
+                % Check if the new letter is different from the existing ones
+                chans2add = setdiff(chans2add, existingArray);
+                obj.scalpResults.sigElectrodes.(property).(timeName).(freq) = [existingArray, chans2add];
+            elseif ~isempty(chans2add)
+                % Create a new cell array with the new letter
+                obj.scalpResults.sigElectrodes.(property).(timeName).(freq) = chans2add;
             end
         end
         %--------------END OF CLASS METHODS-----------------------%

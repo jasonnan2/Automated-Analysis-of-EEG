@@ -158,6 +158,9 @@ classdef DataAnalysis
         end
         
         function obj = calSigTbl(obj,chanTypes)
+            % Extracts significantly different variables and saves into 
+            % obj.results.sigValues.(property).(time)
+            %
             % chanTypes | 'all' |'sig' string value indicating what channels to save as
             %             table. default is to save only significant channels 'sig' 
             

@@ -195,14 +195,11 @@ classdef SourceObject < DataAnalysis
                             pvals(:,f)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
 
                             if FDRflag
-                                tempP = fdr(pvals(rois2plot,f)); % only fdr correct ROIs of interest
+                                tempP = fdr(pvals(rois2plot,f));
                                 pvals(rois2plot,f) = tempP;
                             end
-                            unusedROI = setdiff(1:size(pvals,1),rois2plot);
-                            pvals(unusedROI,f)=nan; % remove p values of roi not used
                             obj=addSourceSig(obj,property, timeName, groupDiff, freq, pvals(:,f));
                             plotdata(:,f)=nanmean(s2,2)-nanmean(s1,2); % average across subjects and subtract
-                            plotdata(unusedROI,f)=0;
                         end
                         if toPlot
                             tohide = T'*(pvals>0.05);
