@@ -180,19 +180,19 @@ sourceObject.plotBrainmap('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plo
 
 ## Results from runERP.m with sample.mat
 
-![Fig1](samplePlots/Figure1.jpg)
+![Fig1](samplePlots/Figure1.jpg?raw=true&v=2)
 
 Scalp Topography showing Group2-Group1 activity. Three frequency bands are shown and one time range is shown from the specifications inputted. '+' indicates significant electrodes.
 
-![Fig2](samplePlots/Figure2.jpg)
+![Fig2](samplePlots/Figure2.jpg?raw=true&v=2)
 
 ERP's of significant electrode seen in Fig1. One Figure is shown for 'time1' from specifications.
 
-![Fig3](samplePlots/Figure3.jpg)
+![Fig3](samplePlots/Figure3.jpg?raw=true&v=2)
 
 Bar plots in the same format as Fig2
 
-![Fig4](samplePlots/Figure4.jpg)
+![Fig4](samplePlots/Figure4.jpg?raw=true&v=2)
 
 Screengrab of the output of neural behavior model.
  - First column indicates the specific neural variable plotted. Ex:  NeuralVarName_time1_beta_P7 is 'neural variable' 'time window' 'freq band' 'electrode' 
