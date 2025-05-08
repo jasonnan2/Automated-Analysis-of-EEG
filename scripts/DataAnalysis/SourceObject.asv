@@ -11,45 +11,105 @@ classdef SourceObject < DataAnalysis
             obj.DATA=DATA;
         end
         
-        function plotNetwork(obj,netwrk,properties)
-            timeNames = fieldnames(obj.info.timeRange);
-            N = length(obj.info.groupNames);
-            combinations = nchoosek(1:N,2);
-            for p=1:length(properties)
-                property=properties{p};
+        function plotNetwork(obj,varargin)
+            %   [...] = plotNetwork(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
+            %   parameters and their values. Will only plot conditions that satisfy 
+            %   all conditions specified. Default run will plot all
+            %   combinations. Plots shown are masked by fdr correction
+            %   across brain region. 
+            %   Valid parameters are the following:
+            %
+            %        Parameter  Value
+            %         'vars2plot'    cell array of variables in the object
+            %                        to plot. Default is to plot all
+            %                        variables
+            %                  
+            %         'freq2plot'    cell array of frequencies in the object
+            %                        to plot. Default is to plot all
+            %                        frequencies
+            %                   
+            %         'times2plot'   cell array of time ranges in the object
+            %                        to plot. Default is to plot all
+            %                        time ranges
+            %         'groups2plot' array defining which groups show
+            %                        comparisons on.
+            %                        ex: [1,2] will do groups 1 vs 2
+            %                            [1,2,3] will show gruops 1,2,3
+            %         'FDRflag'      1/0 flag for plotting fdr corrected p-values correcting
+            %                        within each scalp map (# networks)
+            %                        Default is 1 (plot corrected values).
+            %         'isnormal'    'auto' 1 0 |
+            %                        indicates distribution of the data for
+            %                        significance testing. normal (1 flag) will use
+            %                        ttest/ttest2. not normal (0 flag) will
+            %                        use signrank/ranksum test. 'auto' will
+            %                        determine if the data is normal with
+            %                        adtest. 'auto' is default.
+            
+            pnames = {'vars2plot','freq2plot','times2plot','groups2plot','FDRflag','isnormal'};
+            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),1:N,1,'auto'};
+            [vars2plot,freq_list,timeNames,groups2plot,FDRflag,isnormal] = parseArgs(pnames,dflts,varargin{:});
+            N = length(groups2plot);
+            netwrk=obj.info.netwrk;
+
+            % normality test
+            if strcmp(isnormal,'auto')
+                % Get all Data
+                all_data=[];
+                for p=1:length(vars2plot)
+                    property=vars2plot{p};
+                    for t=1:length(timeNames)
+                        timeName=timeNames{t};
+                        for f = 1:length(obj.info.freq_list)
+                            freq=obj.info.freq_list{f};
+                            for comb = unique(combinations)
+                                groupName=obj.info.groupNames{comb};
+                                tempData = obj.sourceResults.netData.(groupName).(property).(timeName).(freq);
+                                all_data = [all_data reshape(tempData(rois2plot,:),1,[])];
+                            end
+                        end
+                    end
+                end
+                isnormal = ~adtest(all_data);
+            end
+            obj.sourceResults.isnormalNet=isnormal;
+
+            for p=1:length(vars2plot)
+                property=vars2plot{p};
                 figure
                 count=0;
                 for t=1:length(timeNames)
                     timeName=timeNames{t};
-                    timeIdx = obj.info.timeIDX.(timeName);
                     for f = 1:length(obj.info.freq_list)
-                        freq=obj.info.freq_list{f};
+                        freq=freq_list{f};
                         % Generating plot data
                         data=[];sem=[];
-                        for n=1:N
-                            for i=1:length(netwrk)
-                                subdata = squeeze(nanmean(nanmean(getGroupData(obj,obj.info.groupNames{n},property,freq,timeName,netwrk(i).roi),2),3));
-                                data(i,n) = nanmean(subdata,'all');
-                                sem(i,n) = std(subdata)/sqrt(length(subdata));
-                            end
+                        
+                        for comb = 1:length(groups2plot)
+                            group=obj.info.groupNames{groups2plot(comb)};
+                            tempData = obj.sourceResults.netData.(group).(property).(timeName).(freq); % size net x groups
+                            data(:,comb) = nanmean(tempData,2);
+                            sem(:,comb) = std(tempData,[],2)/sqrt(size(tempData,2));
                         end
+                        
                         count=count+1;
-                        subplot(length(timeNames),length(obj.info.freq_list),count)
+                        subplot(length(timeNames),length(freq_list),count)
                         
                         obj.plotErrBar(data,sem)
                         [ngroups, nbars] = size(data);
                         groupwidth = min(0.8, nbars/(nbars + 1.5));
-
+                        
+                        combinations = nchoosek(groups2plot,2);
                         for comb = 1:size(combinations, 1)
                             group1=obj.info.groupNames{combinations(comb, 1)};
                             group2=obj.info.groupNames{combinations(comb, 2)};
-                            s1=[];s2=[];
-                            for i=1:length(netwrk)
-                                % collapsing networks
-                                s1(i,:) = squeeze(nanmean(nanmean(obj.getGroupData(group1,property,freq,timeName,netwrk(i).roi),2),3));
-                                s2(i,:) = squeeze(nanmean(nanmean(obj.getGroupData(group2,property,freq,timeName,netwrk(i).roi),2),3));
+                            s1=obj.sourceResults.netData.(group1).(property).(timeName).(freq);
+                            s2=obj.sourceResults.netData.(group2).(property).(timeName).(freq);
+
+                            pvals(comb,:)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign,isnormal);
+                            if FDRflag
+                                pvals(comb,:)=fdr(pvals(comb,:));
                             end
-                            pvals(comb,:)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign);
 
                             group1Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 1)-1) * groupwidth / (2*nbars);
                             group2Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 2)-1) * groupwidth / (2*nbars);
@@ -80,13 +140,7 @@ classdef SourceObject < DataAnalysis
             %
             %   Results are saved into the following fields of the input object `obj`:
             %
-            %   - obj.sourceResults.sigROIsP.(property).(timeName).(group1_group2).(freq)
-            %       Raw p-values for group comparisons at each ROI.
-            %       These are not FDR-corrected.
-            %
-            %   - obj.sourceResults.sigROIs.(property).(timeName).(freq)
-            %       significance rois for each comparison
-            %       These are not FDR-corrected
+
 
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
@@ -108,7 +162,77 @@ classdef SourceObject < DataAnalysis
                 end
             end
         end
-        function analyzeRoi(obj,varargin)
+        function obj = calNetData(obj, netwrk)
+        % calNetData Calculate network-level data from ROI-level source results
+        %
+        %   obj = calNetData(obj, netwrk)
+        %
+        %   This method processes ROI-level source data and aggregates it based on
+        %   predefined brain network definitions provided in the `netwrk` structure.
+        %
+        %   Inputs:
+        %     obj     - Class object containing source-level analysis results
+        %     netwrk  - Struct array defining brain networks. Each element must contain:
+        %                 .name : Name of the network (e.g., 'FPN', 'DMN')
+        %                 .roi  : Vector of ROI indices that define the network
+        %   Outputs:
+        %     obj - Updated object containing network-level averaged data
+        %
+        %     Results are saved into:
+        %
+        %     - obj.sourceResults.netData.(group).(property).(timeName).(freq)
+        %         A matrix of size [Nnetworks x Nsubjects] containing network-averaged
+        %         values for each subject, computed by averaging ROI-level data within
+        %         each predefined network.
+        % Validate netwrk input
+            if nargin<1
+                error('Require netwrk definition')
+            end
+            if ~isstruct(netwrk)
+                error('Input "netwrk" must be a struct array.');
+            end
+            
+            requiredFields = {'name', 'roi'};
+            for i = 1:numel(netwrk)
+                for f = 1:numel(requiredFields)
+                    if ~isfield(netwrk(i), requiredFields{f})
+                        error('Each element in "netwrk" must contain a "%s" field.', requiredFields{f});
+                    end
+                end
+                if ~ischar(netwrk(i).name) && ~isstring(netwrk(i).name)
+                    error('netwrk(%d).name must be a string or character vector.', i);
+                end
+                if ~isnumeric(netwrk(i).roi) || isempty(netwrk(i).roi)
+                    error('netwrk(%d).roi must be a non-empty numeric vector.', i);
+                end
+            end
+            obj.info.netwrk = netwrk;
+
+            timeNames = fieldnames(obj.info.timeIDX);
+            N = numel(fieldnames(obj.DATA));
+            properties=obj.info.variables;
+            for p=1:length(properties)
+                property=properties{p}; % get property name
+                for n = 1:N
+                    group=obj.info.groupNames{n};
+                    for t=1:length(timeNames)
+                        timeName=timeNames{t};
+                        for f=1:length(obj.info.freq_list)
+                            freq=obj.info.freq_list{f};
+                            % average in time dimension
+                            data = squeeze(nanmean(obj.getGroupData(group,property,freq,timeName),3)); % size roi x Nsubs
+                            netData =[];
+                            for net=1:length(netwrk)
+                                netData(net,:) = nanmean(data(netwrk(net).roi,:),1);
+                            end
+                            obj.sourceResults.netData.(group).(property).(timeName).(freq) = netData;
+                        end
+                    end
+                end
+            end
+        end
+
+        function obj=analyzeRoi(obj,varargin)
             
             %   [...] = analyzeRoi(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
             %   parameters and their values. Will only plot conditions that satisfy 
@@ -195,11 +319,14 @@ classdef SourceObject < DataAnalysis
                             pvals(:,f)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
 
                             if FDRflag
-                                tempP = fdr(pvals(rois2plot,f));
+                                tempP = fdr(pvals(rois2plot,f)); % only fdr correct ROIs of interest
                                 pvals(rois2plot,f) = tempP;
                             end
+                            unusedROI = setdiff(1:size(pvals,1),rois2plot);
+                            pvals(unusedROI,f)=nan; % remove p values of roi not used
                             obj=addSourceSig(obj,property, timeName, groupDiff, freq, pvals(:,f));
                             plotdata(:,f)=nanmean(s2,2)-nanmean(s1,2); % average across subjects and subtract
+                            plotdata(unusedROI,f)=0;
                         end
                         if toPlot
                             tohide = T'*(pvals>0.05);
@@ -291,7 +418,7 @@ classdef SourceObject < DataAnalysis
                 end
             end
         end
-        function analyzeNetConnectivity(obj,varargin)
+        function plotNetConnectivity(obj,varargin)
             %   [...] = analyzeNetConnectivity(...,'PARAM1',VAL1,'PARAM2',VAL2,...)
             %   Plots and anlyzes network connectivity data. Must run calConnectivity()
             %   first. Each dataset will generate 3 plots, group 1, group 2, and

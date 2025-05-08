@@ -55,12 +55,11 @@ sourceObject.analyzeRoi('rois2plot',rois2plot, 'vars2plot',vars2plot,'freq2plot'
     'toPlot',toPlot,'isnormal',isnormal); % full roi plot for specified measure
 
 sourceObject = sourceObject.calSigTbl();
-sourceObject = sourceObject.calNetData(netwrk);
 sourceObject = sourceObject.calConnectivity(netwrk,'net');
 
 %% Source Plotting
-sourceObject.plotNetwork('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'groups2plot',[1,2],'FDRflag',FDRflag); % grouped network bar plots for specified measure
-sourceObject.plotNetConnectivity('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2],'FDRflag',FDRflag)
+sourceObject.plotNetwork(netwrk,vars2plot); % grouped network bar plots for specified measure
+sourceObject.analyzeNetConnectivity('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2],'FDRflag',FDRflag)
 
 %% Source Behavior Model - same format as scalp
 neuralVar={'NeuralVarName'};

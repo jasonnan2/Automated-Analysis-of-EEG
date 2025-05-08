@@ -23,12 +23,11 @@ timeRange.time1=[0 500];
 timeRange.time2=[500 1000];
 timeRange.time3=[1000 1500];
 
-
-
 % Defining optional parameters to test for
 vars2plot={'NeuralVarName'};
 freq2plot={'theta','alpha','beta'}; 
 times2plot={'time1'};
+combinations = [1,2];
 errorType='sem';
 chans2plot={''}; 
 FDRflag=0; 
@@ -45,7 +44,7 @@ scalpObject = scalpObject.standardProcessing(); % standard processing pipeline, 
 scalpObject = scalpObject.calChanData(); % calcualtes all significant electrodes between groups across all conditions
 
 scalpObject = scalpObject.analyzeScalp('vars2plot',vars2plot,'freq2plot',freq2plot, ...
-    'times2plot',times2plot,'combinations',[1,2],'FDRflag',FDRflag,'toPlot',toPlot,'isnormal',isnormal);
+    'times2plot',times2plot,'combinations',combinations,'FDRflag',FDRflag,'toPlot',toPlot,'isnormal',isnormal);
 
 %% Scalp Plotting ERP and Bar graph
 close all
