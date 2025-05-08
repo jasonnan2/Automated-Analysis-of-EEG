@@ -5,9 +5,12 @@ classdef SourceObject < DataAnalysis
         netConnectivity
     end
     methods
-        function obj = SourceObject(DATA, info, baselineTime, timeRange)
+        function obj = SourceObject(DATA, info, baselineTime, timeRange,cfg)
+            if nargin<5 || isempty(cfg)
+                cfg=struct();
+            end
             % Call superclass constructor
-            obj = obj@DataAnalysis( info, baselineTime, timeRange);
+            obj = obj@DataAnalysis( info, baselineTime, timeRange,cfg);
             obj.DATA=DATA;
         end
         
@@ -31,7 +34,7 @@ classdef SourceObject < DataAnalysis
             %         'times2plot'   cell array of time ranges in the object
             %                        to plot. Default is to plot all
             %                        time ranges
-            %         'groups2plot' array defining which groups show
+            %         'groups2plot'  array defining which groups show
             %                        comparisons on.
             %                        ex: [1,2] will do groups 1 vs 2
             %                            [1,2,3] will show gruops 1,2,3
@@ -45,11 +48,23 @@ classdef SourceObject < DataAnalysis
             %                        use signrank/ranksum test. 'auto' will
             %                        determine if the data is normal with
             %                        adtest. 'auto' is default.
+            %
+            %         'color_list'   cell array to determine colors
+            %                        default is {'r','b','g','m','k','c','y'}
             
-            pnames = {'vars2plot','freq2plot','times2plot','groups2plot','FDRflag','isnormal'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),1:length(obj.info.groupNames),1,'auto'};
-            [vars2plot,freq_list,timeNames,groups2plot,FDRflag,isnormal] = parseArgs(pnames,dflts,varargin{:});
+            cfg = parseCfgOrArgs(obj, varargin{:});
+            % Use fields directly
+            vars2plot  = cfg.vars2plot;
+            freq2plot  = cfg.freq2plot;
+            times2plot  = cfg.times2plot;
+            groups2plot= cfg.groups2plot;
+            FDRflag = cfg.FDRflag;
+            isnormal=cfg.isnormal;
+            color_list=cfg.color_list;
+
             netwrk=obj.info.netwrk;
+            combinations = nchoosek(groups2plot,2);
+
 
             % normality test
             if strcmp(isnormal,'auto')
@@ -57,14 +72,14 @@ classdef SourceObject < DataAnalysis
                 all_data=[];
                 for p=1:length(vars2plot)
                     property=vars2plot{p};
-                    for t=1:length(timeNames)
-                        timeName=timeNames{t};
+                    for t=1:length(times2plot)
+                        timeName=times2plot{t};
                         for f = 1:length(obj.info.freq_list)
                             freq=obj.info.freq_list{f};
                             for comb = unique(combinations)
                                 groupName=obj.info.groupNames{comb};
                                 tempData = obj.sourceResults.netData.(groupName).(property).(timeName).(freq);
-                                all_data = [all_data reshape(tempData(rois2plot,:),1,[])];
+                                all_data = [all_data reshape(tempData,1,[])];
                             end
                         end
                     end
@@ -77,10 +92,10 @@ classdef SourceObject < DataAnalysis
                 property=vars2plot{p};
                 figure
                 count=0;
-                for t=1:length(timeNames)
-                    timeName=timeNames{t};
-                    for f = 1:length(obj.info.freq_list)
-                        freq=freq_list{f};
+                for t=1:length(times2plot)
+                    timeName=times2plot{t};
+                    for f = 1:length(freq2plot)
+                        freq=freq2plot{f};
                         % Generating plot data
                         data=[];sem=[];
                         
@@ -92,9 +107,9 @@ classdef SourceObject < DataAnalysis
                         end
                         
                         count=count+1;
-                        subplot(length(timeNames),length(freq_list),count)
+                        subplot(length(times2plot),length(freq2plot),count)
                         
-                        obj.plotErrBar(data,sem)
+                        obj.plotErrBar(data,sem,color_list)
                         [ngroups, nbars] = size(data);
                         groupwidth = min(0.8, nbars/(nbars + 1.5));
                         
@@ -122,7 +137,7 @@ classdef SourceObject < DataAnalysis
                             title(freq)
                         end
                         if f==1
-                           ylabel(timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
+                           ylabel(times2plot{t},'fontweight','bold','fontsize',16,'rotation',90);         
                         end
                      end
                 end
@@ -241,6 +256,10 @@ classdef SourceObject < DataAnalysis
             %   Valid parameters are the following:
             %
             %        Parameter  Value
+            %         'hmFile'       filepath to a specific headmodel file
+            %                        to use in plotting. From
+            %                        github.com/aojeda/dsi. If none is
+            %                        specified, the default will be used. 
             %         'rois2plot'    numeric array of variables in the object
             %                        to plot. Default is to plot all
             %                        ROIs
@@ -272,18 +291,52 @@ classdef SourceObject < DataAnalysis
             %                        determine if the data is normal with
             %                        adtest. 'auto' is default.
             
-            N = length(obj.info.groupNames);
-            pnames = {'rois2plot','vars2plot','freq2plot','times2plot','combinations','FDRflag','toPlot','isnormal'};
-            dflts  = {length(obj.info.roi),obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2),1,1,'auto'};
-            [rois2plot,vars2plot,freq_list,timeNames,combinations,FDRflag,toPlot,isnormal] = parseArgs(pnames,dflts,varargin{:});
+            cfg = parseCfgOrArgs(obj, varargin{:});
+            % Use fields directly
+            hmFile = cfg.hmFile;
+            rois2plot = cfg.rois2plot;
+            combinations = cfg.combinations;
+            vars2plot  = cfg.vars2plot;
+            freq2plot  = cfg.freq2plot;
+            times2plot  = cfg.times2plot;
+            FDRflag = cfg.FDRflag;
+            toPlot = cfg.toPlot;
+            isnormal=cfg.isnormal;
+
+            % Initialize results structs
+            obj.sourceResults.sigROIs=struct();
+            obj.sourceResults.sigROIsP=struct();
+
+            % check if headmodel and plotting functions exist
+            if toPlot
+                % Try to get default head model path
+                try
+                    defaultHMfile = headModel.getDefaultTemplateFilename();
+                catch
+                    error('Cannot find head model for plotting. Ensure github.com/aojeda/dsi is installed.');
+                end
+            
+                % Validate head model path
+                if ~exist(hmFile, 'file')
+                    if ~isempty(defaultHMfile) && exist(defaultHMfile, 'file')
+                        hmFile = defaultHMfile;
+                        disp('Using default head model for plotting.');
+                    else
+                        error('Can not find any head model files.');
+                    end
+                end
+            end
+
+
+
             % normality test
             if strcmp(isnormal,'auto')
                 % Get all Data
                 all_data=[];
                 for p=1:length(vars2plot)
                     property=vars2plot{p};
-                    for t=1:length(timeNames)
-                        timeName=timeNames{t};
+                    for t=1:length(times2plot)
+                        timeName=times2plot{t};
                         for f = 1:length(obj.info.freq_list)
                             freq=obj.info.freq_list{f};
                             for comb = unique(combinations)
@@ -298,7 +351,7 @@ classdef SourceObject < DataAnalysis
             end
             obj.sourceResults.isnormal=isnormal;
             if toPlot
-                hm = headModel.loadFromFile('headModel_templateFile_newPEBplus.mat');
+                hm = headModel.loadFromFile(hmFile);
                 T = hm.indices4Structure(hm.atlas.label);
                 T = double(T)';
             end
@@ -307,11 +360,11 @@ classdef SourceObject < DataAnalysis
                 for comb = 1:size(combinations, 1)
                     group1=obj.info.groupNames{combinations(comb, 1)};
                     group2=obj.info.groupNames{combinations(comb, 2)};    
-                    for t=1:length(timeNames)
-                        timeName=timeNames{t};
+                    for t=1:length(times2plot)
+                        timeName=times2plot{t};
                         plotdata=[];pvals=[];
-                        for f=1:length(freq_list)
-                            freq=freq_list{f};
+                        for f=1:length(freq2plot)
+                            freq=freq2plot{f};
                             % average in time dimension
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
@@ -323,7 +376,7 @@ classdef SourceObject < DataAnalysis
                             end
                             unusedROI = setdiff(1:size(pvals,1),rois2plot);
                             pvals(unusedROI,f)=nan; % remove p values of roi not used
-                            obj=addSourceSig(obj,property, timeName, groupDiff, freq, pvals(:,f));
+                            obj=addSourceSig(obj,property, timeName, append(group2,"_",group1), freq, pvals(:,f));
                             plotdata(:,f)=nanmean(s2,2)-nanmean(s1,2); % average across subjects and subtract
                             plotdata(unusedROI,f)=0;
                         end
@@ -331,7 +384,7 @@ classdef SourceObject < DataAnalysis
                             tohide = T'*(pvals>0.05);
                             X=T'*plotdata;
                             X(tohide==1)=0;
-                            plot68roi(hm,X , 1,freq_list)
+                            plot68roi(hm,X , 1,freq2plot)
                             hAx = axes('Position', [0, 0, 1, 1], 'Visible', 'off');
                             text(0.5, 1, property+" "+timeName+" "+group2+"-"+group1, 'Units', 'normalized', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
                         end
@@ -339,10 +392,10 @@ classdef SourceObject < DataAnalysis
                 end
             end
         end
-        function obj = calConnectivity(obj,netwrk,method)
+        function obj = calConnectivity(obj,netwrk,varargin)
             % calculateConnectivity Compute functional connectivity between brain regions or networks
             %
-            %   connMatrix = calculateConnectivity(data, method, roiLabels, networkLabels)
+            %   connMatrix = calculateConnectivity()
             %
             %   This function computes connectivity using one of two approaches:
             %     1. 'avg_roi' method:
@@ -364,21 +417,22 @@ classdef SourceObject < DataAnalysis
             %     - Assumes data has been preprocessed (e.g., detrended, filtered)
             
             properties=obj.info.variables;
+
+            cfg = parseCfgOrArgs(obj, varargin{:});
+            % Use fields directly
+            method  = cfg.netConMethod;
+
             timeNames = fieldnames(obj.info.timeRange);
-            N = length(obj.info.groupNames);
-            combinations = nchoosek(1:N,2);
-            
+            N = length(obj.info.groupNames);            
             if ~isfield(obj.info,'netwrk')
                 obj.info.netwrk=netwrk;
             end
-            obj.info.netConnectivity_Method=method;
-            
+
             for p=1:length(properties)
                 property=properties{p};
                 
                 for t=1:length(timeNames)
                     timeName=timeNames{t};
-                    timeIdx = obj.info.timeIDX.(timeName);
                     for f = 1:length(obj.info.freq_list)
                         freq=obj.info.freq_list{f};
                         % Generating plot data
@@ -450,36 +504,50 @@ classdef SourceObject < DataAnalysis
             %         'FDRflag'      1/0 flag for plotting fdr corrected p-values correcting
             %                        within each scalp map (# electrodes)
             %                        Default is 1 (plot corrected values).
-            
-            N = length(obj.info.groupNames);
-            pnames = {'vars2plot','freq2plot','times2plot','combinations','FDRflag'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2),1};
-            [vars2plot,freq_list,timeNames,combinations, FDRflag] = parseArgs(pnames,dflts,varargin{:});
+            %         'isnormal'    'auto' 1 0 |
+            %                        indicates distribution of the data for
+            %                        significance testing. normal (1 flag) will use
+            %                        ttest/ttest2. not normal (0 flag) will
+            %                        use signrank/ranksum test. 'auto' will
+            %                        determine if the data is normal with
+            %                        adtest. 'auto' is default.
+
+            cfg = parseCfgOrArgs(obj, varargin{:});
+            % Use fields directly
+            combinations = cfg.combinations;
+            vars2plot  = cfg.vars2plot;
+            freq2plot  = cfg.freq2plot;
+            times2plot  = cfg.times2plot;
+            FDRflag = cfg.FDRflag;
+            isnormal=cfg.isnormal;
+
             netwrk=obj.info.netwrk;
-            % Get all Data
-            all_data=[];
-            for p=1:length(vars2plot)
-                property=vars2plot{p};
-                for t=1:length(timeNames)
-                    timeName=timeNames{t};
-                    for f = 1:length(obj.info.freq_list)
-                        freq=obj.info.freq_list{f};
-                        for comb = unique(combinations)
-                            groupName=obj.info.groupNames{comb};
-                            tempData = obj.netConnectivity.(groupName).(property).(timeName).(freq);
-                            all_data = [all_data reshape(tempData,1,[])];
+            
+            if strcmp(isnormal,'auto')
+                % Get all Data
+                all_data=[];
+                for p=1:length(vars2plot)
+                    property=vars2plot{p};
+                    for t=1:length(times2plot)
+                        timeName=times2plot{t};
+                        for f = 1:length(freq2plot)
+                            freq=freq2plot{f};
+                            for comb = unique(combinations)
+                                groupName=obj.info.groupNames{comb};
+                                tempData = obj.netConnectivity.(groupName).(property).(timeName).(freq);
+                                all_data = [all_data reshape(tempData,1,[])];
+                            end
                         end
                     end
                 end
+                isnormal = ~adtest(atanh(all_data));
             end
-            
-            isnormal = ~adtest(atanh(all_data));
             
             for p=1:length(vars2plot)
                 property=vars2plot{p};
             
-                for t=1:length(timeNames)
-                    timeName=timeNames{t};
+                for t=1:length(times2plot)
+                    timeName=times2plot{t};
                     figure
                     count=1;
                     subplot = @(m,n,p) subtightplot (m, n, p, [0.1 0.1], [0.1 0.1], [0.1 0.1]);
@@ -518,14 +586,14 @@ classdef SourceObject < DataAnalysis
             
                             ylabel(freq,'fontweight','bold','fontsize',12)
             
-                            subplot(length(obj.info.freq_list),3,count)
+                            subplot(length(freq2plot),3,count)
                             plotNetConn(tanh(nanmean(atanh(s2),3)), pvals1,netwrk)
                             count=count+1;
                             if f==1
                                 title(group2)
                             end
             
-                            subplot(length(obj.info.freq_list),3,count)
+                            subplot(length(freq2plot),3,count)
                             plotNetConn(tanh(nanmean(atanh(s2)-atanh(s1),3)), pvalsDiff,netwrk)
                             count=count+1;
                             if f==1

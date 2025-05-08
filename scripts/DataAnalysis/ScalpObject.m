@@ -5,9 +5,12 @@ classdef ScalpObject < DataAnalysis
     end
     
     methods
-        function obj = ScalpObject(DATA, info, baselineTime, timeRange)
+        function obj = ScalpObject(DATA, info, baselineTime, timeRange,cfg)
+            if nargin<5 || isempty(cfg)
+                cfg=struct();
+            end
             % Call superclass constructor
-            obj = obj@DataAnalysis(info, baselineTime, timeRange);
+            obj = obj@DataAnalysis(info, baselineTime, timeRange,cfg);
             obj.DATA=DATA;
         end
         
@@ -74,21 +77,32 @@ classdef ScalpObject < DataAnalysis
             %                        determine if the data is normal with
             %                        adtest. 'auto' is default.
             
-            N = length(obj.info.groupNames);
-            pnames = {'vars2plot','freq2plot','times2plot','combinations','FDRflag','toPlot','isnormal'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),nchoosek(1:N,2),1,1,'auto'};
-            [vars2plot,freq_list,timeNames,combinations, FDRflag,toPlot,isnormal] = parseArgs(pnames,dflts,varargin{:});
-            
+            cfg = parseCfgOrArgs(obj, varargin{:});
+
+            % Use fields directly
+            vars2plot  = cfg.vars2plot;
+            freq2plot  = cfg.freq2plot;
+            times2plot  = cfg.times2plot;
+            combinations = cfg.combinations;
+            FDRflag    = cfg.FDRflag;
+            toPlot     = cfg.toPlot;
+            isnormal   = cfg.isnormal;
+
+
+            % Initialize results
+            obj.scalpResults.sigElectrodes=struct();
+            obj.scalpResults.sigElectrodesP=struct();
+
             % normality test
             if strcmp(isnormal,'auto')
                 % Get all Data
                 all_data=[];
                 for p=1:length(vars2plot)
                     property=vars2plot{p};
-                    for t=1:length(timeNames)
-                        timeName=timeNames{t};
-                        for f = 1:length(obj.info.freq_list)
-                            freq=obj.info.freq_list{f};
+                    for t=1:length(times2plot)
+                        timeName=times2plot{t};
+                        for f = 1:length(freq2plot)
+                            freq=freq2plot{f};
                             for comb = unique(combinations)
                                 groupName=obj.info.groupNames{comb};
                                 tempData = obj.scalpResults.chanData.(groupName).(property).(timeName).(freq);
@@ -110,14 +124,11 @@ classdef ScalpObject < DataAnalysis
                         figure
                         figCount=0;
                     end
-                    for t=1:length(timeNames)
-                        timeName=timeNames{t};
+                    for t=1:length(times2plot)
+                        timeName=times2plot{t};
                         
-                        for f=1:length(freq_list)
-                            
-                            freq=freq_list{f};
-                            figCount = figCount + 1;
-                            subplot(length(timeNames),length(freq_list),figCount)
+                        for f=1:length(freq2plot)
+                            freq=freq2plot{f};
                             s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
                             s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
                             [pvals]=obj.calGroupSig(s1,s2,obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
@@ -125,14 +136,16 @@ classdef ScalpObject < DataAnalysis
                                 pvals = fdr(pvals);
                             end
 
-                            obj = addScalpSig(obj,property, timeName, append(group1,"_",group2), freq, pvals); 
+                            obj = addScalpSig(obj,property, timeName, append(group2,"_",group1), freq, pvals); 
                             if toPlot
+                                figCount = figCount + 1;
+                                subplot(length(times2plot),length(freq2plot),figCount)
                                 plotSigTopo(s1,s2,obj.info.chanlocs,pvals,{'.','+'})
                                 if t==1
-                                    title(freq_list{f})
+                                    title(freq2plot{f})
                                 end
                                 if f==1
-                                    text(-1,-.2, timeNames{t},'fontweight','bold','fontsize',16,'rotation',90);         
+                                    text(-1,-.2, times2plot{t},'fontweight','bold','fontsize',16,'rotation',90);         
                                 end
                             end
                         end
@@ -146,7 +159,7 @@ classdef ScalpObject < DataAnalysis
         
         function plotERPs(obj,varargin)
             %   [...] = plotERPs(...,'PARAM1',VAL1,'PARAM2',VAL2,...)
-            %   Plots overlayed ERPs between groups. Non-FDR corrected mask
+            %   Plots overlayed ERPs between groups.
             %   Specifies additional parameters and their values.
             %   Valid parameters are the following:
             %
@@ -169,17 +182,19 @@ classdef ScalpObject < DataAnalysis
             %                        plot. choices are 'none','sem', and
             %                        '95CI'. Default is 'none'
             %         'color_list'   cell array to determine colors
-            %                        default is {'g','b','r'}
+            %                        default is {'r','b','g','m','k','c','y'}
 
+            cfg = parseCfgOrArgs(obj, varargin{:});
 
+            % Use fields directly
+            vars2plot  = cfg.vars2plot;
+            freq2plot  = cfg.freq2plot;
+            times2plot  = cfg.times2plot;
+            chans2plot = cfg.chans2plot;
+            errorType = cfg.errorType;
+            color_list = cfg.color_list;
             N=length(obj.info.groupNames);
-            pnames = {'vars2plot','freq2plot','times2plot','chans2plot','errorType','color_list'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),'all','none',{'g','b','r'}};
-            [vars2plot,freq2plot,times2plot,chans2plot,errorType,color_list] = parseArgs(pnames,dflts,varargin{:});
-            if ~ismember(errorType, {'none', 'sem', '95CI'})
-                error('Invalid value for errorType. Allowed values are ''none'', ''sem'', and ''95CI''.');
-            end
-           
+
             sigElectrodes=obj.scalpResults.sigElectrodes;
             for p=1:length(vars2plot)
                 property=vars2plot{p};
@@ -210,10 +225,12 @@ classdef ScalpObject < DataAnalysis
                     % get longest electrode map
                     if ~isempty(freq_list)
                         for f=1:length(freq_list)
-                            chan_list = sig.(freq_list{f});
+                            if isequal(chans2plot,'all')
+                                chan_list = sig.(freq_list{f});
+                            end
                             for c=1:length(chan_list)
 
-                                %subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
+%                                 subplot(length(freq_list),maxLength,(f-1)*maxLength+c)
                                 subplot(maxLength,length(freq_list),(c-1) * length(freq_list) + f)
 
                                 freq=freq_list{f};
@@ -288,15 +305,26 @@ classdef ScalpObject < DataAnalysis
             %         'chans2plot'   cell array of channels in the object
             %                        to plot. Default is to plot
             %                        significant channels
-            %         'groups'       cell array of groups in the object
+            %         'groups2plot'  vector array of groups in the object
             %                        to plot. Default is to plot all
             %                        groups. Can also be used to rearrange
             %                        bar order
-            pnames = {'vars2plot','freq2plot','times2plot','chans2plot','groups'};
-            dflts  = {obj.info.variables,obj.info.freq_list, fieldnames(obj.info.timeRange),{obj.info.chanlocs.labels},fieldnames(obj.DATA)};
-            [vars2plot,freq2plot,times2plot,chans2plot,groups] = parseArgs(pnames,dflts,varargin{:});
-            N=numel(groups);
-            combinations = nchoosek(1:N,2);
+            %         'color_list'   cell array to determine colors
+            %                        default is {'r','b','g','m','k','c','y'}
+
+
+            cfg = parseCfgOrArgs(obj, varargin{:});
+            % Use fields directly
+            vars2plot  = cfg.vars2plot;
+            freq2plot  = cfg.freq2plot;
+            times2plot  = cfg.times2plot;
+            chans2plot = cfg.chans2plot;
+            color_list = cfg.color_list;
+            groups2plot= cfg.groups2plot;
+
+            groups = obj.info.groupNames(groups2plot);
+            combinations = nchoosek(groups2plot,2);
+            N=length(groups);
 
             sigElectrodes=obj.scalpResults.sigElectrodes;
             for p=1:length(vars2plot)
@@ -310,22 +338,28 @@ classdef ScalpObject < DataAnalysis
                     [~,~,ib] = intersect(fieldnames(sig),freq2plot);
                     freq_list=freq2plot(sort(ib));
 
-                    % get longest electrode map
-                    maxLength = 0;
-                    for i = 1:length(freq_list)
-                        currentLength = length(sig.(freq_list{i}));  % Get the length of the current cell array
-                        if currentLength > maxLength
-                            maxLength = currentLength;  % Update the maximum length
+                    if isequal(chans2plot,'all')
+                        
+                        % Get max length of all frequencies in one view
+                        maxLength = 0;
+                        for i = 1:length(freq_list)
+                            currentLength = length(sig.(freq_list{i}));  % Get the length of the current cell array
+                            if currentLength > maxLength
+                                maxLength = currentLength;  % Update the maximum length
+                            end
                         end
+                    else
+                        chan_list = chans2plot;
+                        maxLength=length(chan_list);
                     end
 
                     if ~isempty(freq_list)
                         figure
                         for f=1:length(freq_list)
-                            chan_list = intersect(chans2plot,sig.(freq_list{f}));
-%                             if length(chan_list)<length(chans2plot)
-%                                 chan_list=chans2plot;
-%                             end
+                            
+                            if isequal(chans2plot,'all')
+                                chan_list = sig.(freq_list{f});
+                            end
 
                             for c=1:length(chan_list)
                                 
@@ -349,7 +383,7 @@ classdef ScalpObject < DataAnalysis
                                     data(n) = nanmean(subdata);
                                     sem(n) = std(subdata)/sqrt(length(subdata));
                                 end
-                                obj.plotErrBar(data,sem); % plot actual bars
+                                obj.plotErrBar(data,sem,color_list); % plot actual bars
                                 ylim([-0.025 0.045])
                                 % getting significance bars
                                 [ngroups, nbars] = size(data);

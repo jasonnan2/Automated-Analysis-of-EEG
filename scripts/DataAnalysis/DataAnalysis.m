@@ -4,15 +4,16 @@ classdef DataAnalysis
         neuralBehMdl
     end
     methods
-        function obj = DataAnalysis(info,baselineTime, timeRange)
+        function obj = DataAnalysis(info,baselineTime, timeRange,cfg)
             % obj           | formatted data structure with properties of DATA
             % baseline time | vector with start and end time of baseline in mS 
+            % cfg           | configuration struct for definitions. If left
+            %                 empty defaults are used
+
             disp('Initializing object')
-            
-            % and info
+           
             % Initializing the properties to the object
             %-------------------------------------------------------------------%
-
             obj.info=info;
             [~,baselineIDX]=min(abs(baselineTime'-obj.info.timeAxis)');
             obj.info.baselineIDX=baselineIDX;
@@ -23,6 +24,52 @@ classdef DataAnalysis
                 timeIDX.(timeNames{t}) = [startIdx endIdx];
             end
             obj.info.timeIDX=timeIDX;
+            obj = obj.setDefaultCfg(cfg);
+        end
+
+        function obj = setDefaultCfg(obj,cfg)
+            N=length(obj.info.groupNames);
+            if ~isfield(cfg, 'freq2plot');     cfg.freq2plot = obj.info.freq_list; end
+            if ~isfield(cfg, 'rois2plot');     cfg.rois2plot = length(obj.info.roi); end
+            if ~isfield(cfg, 'times2plot');    cfg.times2plot = fieldnames(obj.info.timeRange); end
+            if ~isfield(cfg, 'vars2plot');     cfg.vars2plot = obj.info.variables; end
+            if ~isfield(cfg, 'combinations');  cfg.combinations = nchoosek(1:N,2); end
+            if ~isfield(cfg, 'errorType');     cfg.errorType = 'none'; end
+            if ~isfield(cfg, 'FDRflag');       cfg.FDRflag = 1; end
+            if ~isfield(cfg, 'toPlot');        cfg.toPlot = 1; end
+            if ~isfield(cfg, 'isnormal');      cfg.isnormal = 'auto'; end
+            if ~isfield(cfg, 'chans2plot');    cfg.chans2plot = 'all'; end
+            if ~isfield(cfg, 'color_list');    cfg.color_list = {'r','b','g','m','k','c','y'}; end
+            if ~isfield(cfg, 'groups2plot');   cfg.groups2plot = 1:length(obj.info.groupNames); end
+            if ~isfield(cfg, 'hmFile');        cfg.hmFile = ''; end
+            if ~isfield(cfg, 'netConMethod');  cfg.hmFile = 'net'; end
+            obj.info.cfg = cfg;
+        end
+        function [cfgOut] = parseCfgOrArgs(obj, varargin)
+            % parseCfgOrArgs  Unified parser for cfg struct or name-value pairs
+            % 
+            % Usage:
+            %   cfg = parseCfgOrArgs(obj, varargin)
+            %
+            % Automatically fills missing fields from obj.info defaults
+            % Default values from obj.info
+            defaults = obj.info.cfg;
+        
+            % If a single struct is passed (cfg), convert to name-value pairs
+            if numel(varargin) == 1 && isstruct(defaults)
+                cfgStruct = defaults;
+                varargin = reshape([fieldnames(cfgStruct), struct2cell(cfgStruct)]', 1, []);
+            end
+        
+            % Parameter names and defaults in cell form for parseArgs
+            pnames = fieldnames(defaults);
+            dflts = struct2cell(defaults);
+            
+            % Safe unpacking from varargout-based parseArgs
+            parsed = cell(1, numel(pnames));
+            [parsed{:}] = parseArgs(pnames, dflts, varargin{:});
+            
+            cfgOut = cell2struct(parsed(:), pnames(:), 1);
         end
         
         function [startIdx, endIdx] = getTimeIndices(obj, timeRange, timeName)
@@ -382,8 +429,10 @@ classdef DataAnalysis
                 end
             end
         end
-        function plotErrBar(data,sem)
-            color_list={'r','b','g'};
+        function plotErrBar(data,sem,color_list)
+            if nargin <3 
+                color_list={'r','b','g','m','k','c','y'};
+            end
             if isrow(data) | iscolumn(data)
                 data = vertcat(data,nan(size(data)));
                 sem = vertcat(sem,nan(size(sem)));
@@ -431,6 +480,9 @@ classdef DataAnalysis
             neural_beh_tbl.model=models';
             %neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
         end
+
+
+
         %--------------END OF STATIC METHODS-----------------------%
     end 
     %------------------END OF CLASS-------------------------%
