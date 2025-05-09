@@ -9,14 +9,6 @@ eeglab % Required
 dataPath = 'sample.mat'; % random sample data
 load(dataPath)
 
-% Formatting behavior table for fitlm 
-%baseModel=""; % sepcify model for fitlm
-%behTbl=readtable(); % read behavior table for neural behavior analysis
-behTbl=table();
-rng(1234)
-behTbl.Subject=project.scalpData.Group1.subList';
-behTbl.behVar1=rand(1,10)'
-
 % Defining time in mS for baseline correction
 baselineTime=[-250 -50];
 % Defining time ranges of interest - replace 'time1' with whatever you want
@@ -26,13 +18,18 @@ timeRange.time2=[500 1000];
 timeRange.time3=[1000 1500];
 
 % Defining optional parameters to test for
-vars2plot={'NeuralVarName'};
-freq2plot={'theta','alpha','beta'}; 
-times2plot={'time1'};
-rois2plot = [1:10]; 
-FDRflag=0; 
-toPlot=1;
-isnormal='auto';
+cfg = struct();
+cfg.vars2plot={'NeuralVarName'};
+cfg.freq2plot={'theta','alpha','beta'}; 
+cfg.times2plot={'time1'};
+cfg.groups2plot=[1:3]; % for network plots
+cfg.combinations = [1,2; 1,3];
+cfg.rois2plot = [42,43,47,48]; 
+cfg.FDRflag=1; 
+cfg.toPlot=1;
+cfg.isnormal='auto';
+cfg.hmFile = 'headModel_templateFile_newPEBplus.mat';
+cfg.netConMethod = 'net';
 
 % defining network for source localization - https://github.com/aojeda/dsi 
 fpn=[5 6 55 66 59 60];netwrk(1).name='FPN';netwrk(1).roi=fpn;
@@ -44,25 +41,28 @@ vis=[7 8 13 14 23 24 27 28 43 44];netwrk(6).name='Visual';netwrk(6).roi=vis;
 sm=[33 34 49 50 45 46];netwrk(7).name='SM';netwrk(7).roi=sm;
 van=[2 47 48 63 64];netwrk(8).name='VAN';netwrk(8).roi=van;
 
-% repeat general processing steps
-sourceObject=SourceObject(project.sourceData, project.info, baselineTime, timeRange);
+%% repeat general processing steps
+sourceObject=SourceObject(project.sourceData, project.info, baselineTime, timeRange,cfg);
 sourceObject = sourceObject.cleanDatasets(); 
 sourceObject = sourceObject.standardProcessing();
 sourceObject = sourceObject.calRoiData();
-
-sourceObject.analyzeRoi('rois2plot',rois2plot, 'vars2plot',vars2plot,'freq2plot',freq2plot, ...
-    'times2plot',times2plot,'combinations',[1,2],'FDRflag',FDRflag, ...
-    'toPlot',toPlot,'isnormal',isnormal); % full roi plot for specified measure
-
-sourceObject = sourceObject.calSigTbl();
+% sourceObject = sourceObject.analyzeRoi('FDRflag',0);
+% sourceObject = sourceObject.calSigTbl();
 sourceObject = sourceObject.calNetData(netwrk);
-sourceObject = sourceObject.calConnectivity(netwrk,'net');
+sourceObject = sourceObject.calConnectivity(netwrk);
 
 %% Source Plotting
-sourceObject.plotNetwork('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'groups2plot',[1,2],'FDRflag',FDRflag); % grouped network bar plots for specified measure
-sourceObject.plotNetConnectivity('vars2plot',vars2plot,'freq2plot',freq2plot,'times2plot',times2plot,'combinations',[1,2],'FDRflag',FDRflag)
+close all
+sourceObject.plotNetwork(); % grouped network bar plots for specified measure
+sourceObject.plotNetConnectivity('FDRflag',1)
 
 %% Source Behavior Model - same format as scalp
+% Formatting behavior table for fitlm 
+behTbl=table();
+rng(1234)
+behTbl.Subject=project.scalpData.Group1.subList';
+behTbl.behVar1=rand(1,10)';
+
 neuralVar={'NeuralVarName'};
 baseModel="behVar1 ~ 1+ "; % define model for fitlm - automatically appends neuralVar
 keyColumnName='Subject';

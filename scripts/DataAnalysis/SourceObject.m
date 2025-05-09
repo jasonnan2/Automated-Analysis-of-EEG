@@ -548,17 +548,14 @@ classdef SourceObject < DataAnalysis
             
                 for t=1:length(times2plot)
                     timeName=times2plot{t};
-                    figure
-                    count=1;
-                    subplot = @(m,n,p) subtightplot (m, n, p, [0.1 0.1], [0.1 0.1], [0.1 0.1]);
-            
-            
                     for comb = 1:size(combinations, 1)
-                            group1=obj.info.groupNames{combinations(comb, 1)};
-                            group2=obj.info.groupNames{combinations(comb, 2)};
-                            
-                        for f = 1:length(obj.info.freq_list)
-                            freq=obj.info.freq_list{f};
+                        figure
+                        count=1;
+                        subplot = @(m,n,p) subtightplot (m, n, p, [0.1 0.1], [0.1 0.1], [0.1 0.1]);
+                        group1=obj.info.groupNames{combinations(comb, 1)};
+                        group2=obj.info.groupNames{combinations(comb, 2)};
+                        for f = 1:length(freq2plot)
+                            freq=freq2plot{f};
                             s1 = squeeze(obj.netConnectivity.(group1).(property).(timeName).(freq));
                             s2 = squeeze(obj.netConnectivity.(group2).(property).(timeName).(freq));
                             pvalsDiff=[];
@@ -575,7 +572,7 @@ classdef SourceObject < DataAnalysis
                                 pvals2 = fdr_matCorrect(pvals2);
                             end
             
-                            subplot(length(obj.info.freq_list),3,count)
+                            subplot(length(freq2plot),3,count)
                             plotNetConn(tanh(nanmean(atanh(s1),3)), pvals1,netwrk)
                             
                             count=count+1;
