@@ -3,10 +3,11 @@ clear all;close all;clc
 addpath('scripts')
 addpath('scripts/DataAnalysis')
 addpath('scripts/DataAnalysis/functions')
+addpath('samplePlots')
 eeglab % Required
 
 %% Loading in data and definitions
-dataPath = 'sample.mat'; % random sample data
+dataPath = './samplePlots/sample.mat'; % random sample data
 load(dataPath)
 
 % Defining time in mS for baseline correction
