@@ -6,6 +6,28 @@ classdef ScalpObject < DataAnalysis
     
     methods
         function obj = ScalpObject(DATA, info, baselineTime, timeRange,cfg)
+            % ScalpObject  Constructor for scalp-level EEG analysis object
+            %
+            %   obj = ScalpObject(DATA, info, baselineTime, timeRange, cfg)
+            %
+            %   Initializes a ScalpObject instance, inheriting from the DataAnalysis
+            %   superclass. This object is designed to process scalp-level EEG data 
+            %   (e.g., channel-space time series) for group-level comparisons and 
+            %   statistical analysis.
+            %
+            %   Inputs:
+            %     DATA         - Struct containing scalp EEG data for each group
+            %     info         - Struct with experiment metadata (group names, variables, frequencies, etc.)
+            %     baselineTime - 1x2 vector specifying baseline window [start, end] in ms
+            %     timeRange    - Struct defining named time windows (e.g., time1 = [0 500])
+            %     cfg          - (Optional) Struct of user-defined analysis settings
+            %
+            %   Output:
+            %     obj          - Instantiated ScalpObject with all properties initialized
+            %
+            %   Example:
+            %     obj = ScalpObject(project.scalpData, project.info, [-250 -50], timeRange, cfg);
+            %
             if nargin<5 || isempty(cfg)
                 cfg=struct();
             end
@@ -15,11 +37,30 @@ classdef ScalpObject < DataAnalysis
         end
         
         function obj=calChanData(obj)
-            % obj=ScalpAnalysis(obj)
-            % Calculates all channel data in time windows specified and
-            % saves into
-            % obj.scalpResults.chanData.(group).(property).(time).(freq)
-
+            % calChanData  Compute scalp-level channel data across time windows
+            %
+            %   obj = calChanData(obj) averages the scalp EEG data across the time
+            %   dimension for each group, frequency band, and time window specified in
+            %   the object's metadata. The resulting channel-level data is stored in 
+            %   `obj.scalpResults.chanData`.
+            %
+            %   Inputs:
+            %     obj - ScalpObject instance containing:
+            %              • obj.DATA: EEG data organized by group
+            %              • obj.info: struct with fields:
+            %                  - groupNames: group labels
+            %                  - variables: names of EEG variables (e.g., 'ERP', 'Power')
+            %                  - freq_list: frequency bands
+            %                  - timeIDX: named time window indices
+            %
+            %   Outputs:
+            %     obj - The same object with the following field populated:
+            %              • obj.scalpResults.chanData.(group).(variable).(time).(freq)
+            %                where data is averaged across time.
+            %
+            %   Example:
+            %     scalpObj = scalpObj.calChanData();
+            disp('-----------Calulating channel data and saving in obj.scalpResults.chanData-----------')
             properties=obj.info.variables;
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
@@ -76,6 +117,11 @@ classdef ScalpObject < DataAnalysis
             %                        use signrank/ranksum test. 'auto' will
             %                        determine if the data is normal with
             %                        adtest. 'auto' is default.
+            %   Outputs:
+            %     obj - The same object with the following field populated:
+            %              • obj.scalpResults.sigElectrodes
+            %              • obj.scalpResults.sigElectrodesP
+
             
             cfg = parseCfgOrArgs(obj, varargin{:});
 
@@ -87,11 +133,14 @@ classdef ScalpObject < DataAnalysis
             FDRflag    = cfg.FDRflag;
             toPlot     = cfg.toPlot;
             isnormal   = cfg.isnormal;
+            disp('-----------Calculating group differences and saving in obj.scalpObject.scalpResults------------')
 
 
             % Initialize results
-            obj.scalpResults.sigElectrodes=struct();
-            obj.scalpResults.sigElectrodesP=struct();
+            if ~isfield(obj.scalpResults,'sigElectrodes')
+                obj.scalpResults.sigElectrodes=struct();
+                obj.scalpResults.sigElectrodesP=struct();
+            end
 
             % normality test
             if strcmp(isnormal,'auto')
@@ -99,6 +148,7 @@ classdef ScalpObject < DataAnalysis
                 all_data=[];
                 for p=1:length(vars2plot)
                     property=vars2plot{p};
+                    
                     for t=1:length(times2plot)
                         timeName=times2plot{t};
                         for f = 1:length(freq2plot)
@@ -158,31 +208,39 @@ classdef ScalpObject < DataAnalysis
         end
         
         function plotERPs(obj,varargin)
-            %   [...] = plotERPs(...,'PARAM1',VAL1,'PARAM2',VAL2,...)
-            %   Plots overlayed ERPs between groups.
-            %   Specifies additional parameters and their values.
-            %   Valid parameters are the following:
+            % plotERPs  Plot overlayed ERPs across groups for selected channels, frequencies, and time windows
             %
-            %        Parameter  Value
-            %         'vars2plot'    cell array of variables in the object
-            %                        to plot. Default is to plot all
-            %                        variables
-            %                  
-            %         'freq2plot'    cell array of frequencies in the object
-            %                        to plot. Default is to plot all
-            %                        frequencies
-            %                   
-            %         'times2plot'   cell array of time ranges in the object
-            %                        to plot. Default is to plot all
-            %                        time ranges
-            %         'chans2plot'   cell array of channels to plot.
-            %                        Default is all significant ones
+            %   plotERPs(obj, 'PARAM1', val1, 'PARAM2', val2, ...)
             %
-            %         'errorType'    string value of the type of error to
-            %                        plot. choices are 'none','sem', and
-            %                        '95CI'. Default is 'none'
-            %         'color_list'   cell array to determine colors
-            %                        default is {'r','b','g','m','k','c','y'}
+            %   This method visualizes averaged ERP waveforms for different groups
+            %   using the scalp-level data in the object. It supports plotting across
+            %   multiple frequencies, channels, and time windows with optional error
+            %   bars.
+            %
+            %   Parameters (Name-Value pairs) Default values are in cfg:
+            %      
+            %     'vars2plot'   - Cell array of variable names to plot 
+            %     'freq2plot'   - Cell array of frequency bands to plot 
+            %     'times2plot'  - Cell array of time window names to plot 
+            %     'chans2plot'  - Cell array of channel labels to plot 
+            %     'groups2plot  - Numeric array of groups to plot
+            %     'errorType'   - Type of error bar to include:
+            %                       • 'none'  - No error bars (default)
+            %                       • 'sem'   - Standard error of the mean
+            %                       • '95CI'  - 95% confidence intervals
+            %     'color_list'  - Cell array of color codes for plotting each group
+            %                     
+            %
+            %   Behavior:
+            %     - If 'chans2plot' is set to 'all', only significant electrodes (from obj.scalpResults.sigElectrodes)
+            %       are included for each frequency/time combination.
+            %     - Uses `shadedErrorBar` for optional error visualizations.
+            %
+            %   Example:
+            %     plotERPs(obj, 'vars2plot', {'ERP'}, 'freq2plot', {'theta'}, ...
+            %                  'times2plot', {'time1'}, 'chans2plot', {'Fz','Cz'}, ...
+            %                  'errorType', 'sem', 'color_list', {'r','b','g'})
+            %
 
             cfg = parseCfgOrArgs(obj, varargin{:});
 
@@ -193,7 +251,8 @@ classdef ScalpObject < DataAnalysis
             chans2plot = cfg.chans2plot;
             errorType = cfg.errorType;
             color_list = cfg.color_list;
-            N=length(obj.info.groupNames);
+            groups2plot = cfg.groups2plot;
+            N=length(groups2plot);
 
             sigElectrodes=obj.scalpResults.sigElectrodes;
             for p=1:length(vars2plot)
@@ -224,6 +283,7 @@ classdef ScalpObject < DataAnalysis
 
                     % get longest electrode map
                     if ~isempty(freq_list)
+                        figure
                         for f=1:length(freq_list)
                             if isequal(chans2plot,'all')
                                 chan_list = sig.(freq_list{f});
@@ -235,7 +295,6 @@ classdef ScalpObject < DataAnalysis
 
                                 freq=freq_list{f};
                                 chan=chan_list{c};
-                                freqIdx = find(strcmp(obj.info.freq_list, freq));
                                 timeIdx = obj.info.timeIDX.(time);
                                 elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
                                 data=[];
@@ -275,7 +334,7 @@ classdef ScalpObject < DataAnalysis
                                 end
                             end
                         end
-                        Lgnd = legend(h,obj.info.groupNames);
+                        Lgnd = legend(h,obj.info.groupNames(groups2plot));
                         Lgnd.Position(1) = 0.7;
                         Lgnd.Position(2) = 0.9;
                         sgtitle(strcat(property,'-',time))
@@ -372,8 +431,6 @@ classdef ScalpObject < DataAnalysis
 
                                 freq=freq_list{f};
                                 chan=chan_list{c};
-                                freqIdx = find(strcmp(obj.info.freq_list, freq));
-                                timeIdx = obj.info.timeIDX.(timeName);
                                 elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
                                 data=[];sem=[];
                                 hold on
@@ -437,7 +494,9 @@ classdef ScalpObject < DataAnalysis
             chans2add = chanlabels(pvals<0.05); % significant channels to add to list
     
             % Check if the field already exists
-             if isfield(obj.scalpResults, 'sigElectrodes') && isfield(obj.scalpResults.sigElectrodes, property) && ...
+
+
+            if isfield(obj.scalpResults, 'sigElectrodes') && isfield(obj.scalpResults.sigElectrodes, property) && ...
                 isfield(obj.scalpResults.sigElectrodes.(property), timeName) && isfield(obj.scalpResults.sigElectrodes.(property).(timeName), freq)
                 % Get the existing cell array
                 existingArray = obj.scalpResults.sigElectrodes.(property).(timeName).(freq);
@@ -447,6 +506,11 @@ classdef ScalpObject < DataAnalysis
             elseif ~isempty(chans2add)
                 % Create a new cell array with the new letter
                 obj.scalpResults.sigElectrodes.(property).(timeName).(freq) = chans2add;
+              
+            end
+
+            if ~isfield(obj.scalpResults.sigElectrodes, property)
+                obj.scalpResults.sigElectrodes.(property)=struct();
             end
         end
         %--------------END OF CLASS METHODS-----------------------%

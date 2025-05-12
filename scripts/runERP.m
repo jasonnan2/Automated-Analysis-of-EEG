@@ -17,15 +17,16 @@ timeRange.time3=[1000 1500];
 
 % Defining config structure for focused analysis
 cfg=struct();
-cfg.vars2plot={'NeuralVarName'};
-cfg.freq2plot={'theta','alpha','beta'}; 
-cfg.times2plot={'time1'};
-cfg.combinations = [1,2];
-cfg.groups2plot = [1,2];
-cfg.errorType='none';
-cfg.FDRflag=1; 
-cfg.toPlot=1;
-cfg.isnormal='auto';
+cfg.vars2plot={'NeuralVarName'};        % Based on study definition
+cfg.freq2plot={'theta','alpha','beta'}; % Based on study definition
+cfg.times2plot={'time1'};      % Based on study definition
+cfg.combinations = [1,2];               % Based on study definition
+cfg.groups2plot = [1,2];               % Based on study definition
+cfg.chans2plot = 'all';                 % 'all' - all significant or cell array of any electrodes to plot
+cfg.errorType='none';                   % 'none', 'sem','95CI'
+cfg.FDRflag=1;                          % 1/0 to calculate FDR or not
+cfg.toPlot=1;                           % For scalp topo plots during analyzeScalp()
+cfg.isnormal='auto';                    % 'auto', 1, 0
 
 %% Scalp Analysis
 close all
@@ -34,12 +35,11 @@ scalpObject = scalpObject.cleanDatasets(); % remove any missing subjects if any 
 scalpObject = scalpObject.standardProcessing(); % standard processing pipeline, 5SD outlier, baseline correction
 scalpObject = scalpObject.calChanData(); % calcualtes all significant electrodes between groups across all conditions
 
-%% Opional name value args to bypass config settings
-
+%% Plotting Scalp Analysis
 close all
-scalpObject = scalpObject.analyzeScalp('toPlot',0);
-scalpObject.plotERPs('freq2plot',{'theta'})
-scalpObject.plotScalpBar('freq2plot',{'theta'},'chans2plot',{'Pz'}); 
+scalpObject = scalpObject.analyzeScalp(); % Calculates scalp differences based on cfg file and plots scalp topo plots
+scalpObject.plotERPs() % plotting ERP after analyze Scalp. Must run analyzeScalp() before plotting
+scalpObject.plotScalpBar(); % plot grouped bar plots after analyze Scalp. Must run analyzeScalp() before plotting
 
 %% Scalp Behavior Models
 % Formatting behavior table for fitlm 

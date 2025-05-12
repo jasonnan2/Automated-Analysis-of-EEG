@@ -6,6 +6,27 @@ classdef SourceObject < DataAnalysis
     end
     methods
         function obj = SourceObject(DATA, info, baselineTime, timeRange,cfg)
+            % SourceObject  Constructor for source-level analysis object
+            %
+            %   obj = SourceObject(DATA, info, baselineTime, timeRange, cfg)
+            %
+            %   Initializes a SourceObject instance, which inherits from the
+            %   DataAnalysis superclass. This object manages source-level neural
+            %   data and configuration for ROI/network-based processing.
+            %
+            %   Inputs:
+            %     DATA         - Struct containing source-level data for each group
+            %     info         - Struct with metadata (group names, frequencies, variables, etc.)
+            %     baselineTime - 1x2 vector specifying baseline window [start, end] in ms
+            %     timeRange    - Struct defining named time windows (e.g., time1 = [0 500])
+            %     cfg          - (Optional) Struct of configuration options (e.g., frequencies, plots)
+            %
+            %   Output:
+            %     obj          - Initialized SourceObject with inherited DataAnalysis properties
+            %
+            %   Example:
+            %     obj = SourceObject(project.sourceData, project.info, [-250 -50], timeRange, cfg);
+
             if nargin<5 || isempty(cfg)
                 cfg=struct();
             end
@@ -141,7 +162,7 @@ classdef SourceObject < DataAnalysis
                         end
                      end
                 end
-                Lgnd = legend(obj.info.groupNames);
+                Lgnd = legend(obj.info.groupNames(groups2plot));
                 Lgnd.Position(1) = 0.7;
                 Lgnd.Position(2) = 0.9;
                 sgtitle(property)
@@ -149,12 +170,28 @@ classdef SourceObject < DataAnalysis
         end
 
         function obj=calRoiData(obj)
-
-            % Outputs:
+            % calRoiData  Computes ROI-averaged source activity for each group, frequency, and time window
             %
-            %   Results are saved into the following fields of the input object `obj`:
+            %   obj = calRoiData(obj) averages the source-level neural data across the
+            %   time dimension within each defined time window and stores the resulting
+            %   ROI-level data in the `obj.sourceResults.roiData` field. The function
+            %   processes all groups, frequency bands, and time windows defined in the
+            %   `obj.info` structure.
             %
+            %   Input:
+            %     obj  - SourceObject instance from running
+            %            SourceObject(project.sourceData, project.info, baselineTime, timeRange, cfg);
+            %             
+            %
+            %   Output:
+            %     obj  - The input object with the following field populated:
+            %              • obj.sourceResults.roiData: ROI-level averages indexed by
+            %                group, variable, time window, and frequency.
+            %
+            %   Example usage:
+            %     sourceObject = sourceObject.calRoiData();
 
+            disp('-----------Calulating ROI data and saving in obj.sourceResults.roiData-----------')
 
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
@@ -199,6 +236,7 @@ classdef SourceObject < DataAnalysis
         %         values for each subject, computed by averaging ROI-level data within
         %         each predefined network.
         % Validate netwrk input
+        
             if nargin<1
                 error('Require netwrk definition')
             end
@@ -221,6 +259,7 @@ classdef SourceObject < DataAnalysis
                 end
             end
             obj.info.netwrk = netwrk;
+            disp('-----------Calulating network data and saving in obj.sourceResults.netData-----------')
 
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
@@ -290,6 +329,10 @@ classdef SourceObject < DataAnalysis
             %                        use signrank/ranksum test. 'auto' will
             %                        determine if the data is normal with
             %                        adtest. 'auto' is default.
+            %   Outputs:
+            %     obj - The same object with the following field populated:
+            %              • obj.sourceResults.sigROIs
+            %              • obj.scalpResults.sigROIsP
             
             cfg = parseCfgOrArgs(obj, varargin{:});
             % Use fields directly
@@ -304,8 +347,12 @@ classdef SourceObject < DataAnalysis
             isnormal=cfg.isnormal;
 
             % Initialize results structs
-            obj.sourceResults.sigROIs=struct();
-            obj.sourceResults.sigROIsP=struct();
+            if ~isfield(obj.sourceResults,'sigROIs')
+                obj.sourceResults.sigROIs=struct();
+                obj.sourceResults.sigROIsP=struct();
+            end
+            disp('-----------Calculating group differences and saving in obj.sourceResults------------')
+            
 
             % check if headmodel and plotting functions exist
             if toPlot
@@ -409,8 +456,10 @@ classdef SourceObject < DataAnalysis
             %         - Intra-network connectivity defaults to ROI-to-ROI method
             %
             %   Inputs:
-            %     obj            - SourceObject
-            %     method         - 'roi' or 'network'
+            %     obj         - SourceObject
+            %     netwrk      - Struct array defining brain networks. Each element must contain:
+            %                 .name : Name of the network (e.g., 'FPN', 'DMN')
+            %                 .roi  : Vector of ROI indices that define the network
             %
             %   Notes:
             %     - Intra-network connectivity is always computed using ROI-level method
@@ -427,6 +476,8 @@ classdef SourceObject < DataAnalysis
             if ~isfield(obj.info,'netwrk')
                 obj.info.netwrk=netwrk;
             end
+            disp('-----------Calulating network connectivity and saving in obj.netConnectivity-----------')
+
 
             for p=1:length(properties)
                 property=properties{p};
@@ -564,8 +615,7 @@ classdef SourceObject < DataAnalysis
                                 pvals1(:,a) = obj.calGroupSig(squeeze(atanh(s1(a,:,:))),zeros(size(s1,[2,3])),'paired',isnormal);
                                 pvals2(:,a) = obj.calGroupSig(squeeze(atanh(s2(a,:,:))),zeros(size(s2,[2,3])),'paired',isnormal);
                             end
-            
-            
+                            
                             if FDRflag==1
                                 pvalsDiff = fdr_matCorrect(pvalsDiff);
                                 pvals1 = fdr_matCorrect(pvals1);
@@ -617,6 +667,10 @@ classdef SourceObject < DataAnalysis
             elseif ~isempty(roi2add)
                 % Create a new cell array with the new letter
                 obj.sourceResults.sigROIs.(property).(timeName).(freq) = roi2add;
+            end
+
+            if ~isfield(obj.sourceResults.sigROIs, property)
+                obj.sourceResults.sigROIs.(property) = struct();
             end
         end
 
