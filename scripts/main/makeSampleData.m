@@ -1,5 +1,9 @@
+addpath('scripts')
+addpath('scripts/DataAnalysis')
+addpath('scripts/DataAnalysis/functions')
+addpath('samplePlots')
 %% Generate Project structure (This will be format to use package) 
-load('sample.mat','chanlocs','roi') % Load example channel locations and ROI definitions
+load('./samplePlots/sample.mat','chanlocs','roi') % Load example channel locations and ROI definitions
 
 % Initialize the main project structure
 project = struct();
@@ -114,4 +118,4 @@ project.sourceData.Group2.subList = subList;
 project.sourceData.Group3.subList = subList;
 
 % Append generated project data back to the sample file
-save('./sample.mat','project','-append')
+save('./samplePlots/sample.mat','project','-append')

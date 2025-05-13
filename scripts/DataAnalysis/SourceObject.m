@@ -445,12 +445,12 @@ classdef SourceObject < DataAnalysis
             %   connMatrix = calculateConnectivity()
             %
             %   This function computes connectivity using one of two approaches:
-            %     1. 'avg_roi' method:
+            %     1. 'roi' method:
             %         - Compute ROI-to-ROI connectivity matrix
             %         - Apply Fisher Z-transform
             %         - Average connectivity within each network
             %         - Convert back to connectivity values
-            %     2. 'network' method:
+            %     2. 'net' method:
             %         - Average ROI time series within each network
             %         - Compute network-to-network connectivity directly
             %         - Intra-network connectivity defaults to ROI-to-ROI method
@@ -460,6 +460,8 @@ classdef SourceObject < DataAnalysis
             %     netwrk      - Struct array defining brain networks. Each element must contain:
             %                 .name : Name of the network (e.g., 'FPN', 'DMN')
             %                 .roi  : Vector of ROI indices that define the network
+            %   Optional: 
+            %     method      'net' or 'roi'
             %
             %   Notes:
             %     - Intra-network connectivity is always computed using ROI-level method
