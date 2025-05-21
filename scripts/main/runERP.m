@@ -71,13 +71,3 @@ for t=1:length(time_list)
     [~,tbldata] = calculate_group_means(tbldata, groups, append(time_list(t),'_',groupnames)); % only use newtable. If testing all, then use first output
     scalpObject.scalpResults.sigValues.NeuralVarName.(time_list{t}) = tbldata;
 end
-
-
-
-
-
-
-
-
-
-

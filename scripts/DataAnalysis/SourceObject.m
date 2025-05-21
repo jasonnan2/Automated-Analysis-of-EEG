@@ -611,7 +611,7 @@ classdef SourceObject < DataAnalysis
                             freq=freq2plot{f};
                             s1 = squeeze(obj.netConnectivity.(group1).(property).(timeName).(freq));
                             s2 = squeeze(obj.netConnectivity.(group2).(property).(timeName).(freq));
-                            pvalsDiff=[];
+                            pvalsDiff=[]; pvals1=[];pvals2=[];
                             for a=1:size(s1,1)
                                 pvalsDiff(:,a)=obj.calGroupSig(squeeze(atanh(s1(a,:,:))),squeeze(atanh(s2(a,:,:))),obj.info.experimentalDesign,isnormal);
                                 pvals1(:,a) = obj.calGroupSig(squeeze(atanh(s1(a,:,:))),zeros(size(s1,[2,3])),'paired',isnormal);
