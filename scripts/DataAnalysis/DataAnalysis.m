@@ -42,7 +42,7 @@ classdef DataAnalysis
             if ~isfield(cfg, 'color_list');    cfg.color_list = {'r','b','g','m','k','c','y'}; end
             if ~isfield(cfg, 'groups2plot');   cfg.groups2plot = 1:length(obj.info.groupNames); end
             if ~isfield(cfg, 'hmFile');        cfg.hmFile = ''; end
-            if ~isfield(cfg, 'netConMethod');  cfg.hmFile = 'net'; end
+            if ~isfield(cfg, 'netConMethod');  cfg.netConMethod = 'net'; end
             obj.info.cfg = cfg;
         end
         function [cfgOut] = parseCfgOrArgs(obj, varargin)
@@ -132,9 +132,8 @@ classdef DataAnalysis
                 elseif strcmp(outlier,'none')
                     cleaned=combined;
                 end
-                
-                baselineCorrected = obj.baselineCorrection(cleaned,obj.info.baselineIDX);
                 if calBaseline
+                    baselineCorrected = obj.baselineCorrection(cleaned,obj.info.baselineIDX);
                     obj = obj.split_combined( baselineCorrected,property);
                 else
                     obj = obj.split_combined( cleaned,property);

@@ -27,47 +27,47 @@ cfg.groups2plot = [1,2];               % Based on study definition
 cfg.chans2plot = 'all';                 % 'all' - all significant or cell array of any electrodes to plot
 cfg.errorType='none';                   % 'none', 'sem','95CI'
 cfg.FDRflag=1;                          % 1/0 to calculate FDR or not
-cfg.toPlot=1;                           % For scalp topo plots during analyzeScalp()
+cfg.toPlot=1;                           % For electrode topo plots during analyzeElectrode()
 cfg.isnormal='auto';                    % 'auto', 1, 0
 
-%% Scalp Analysis
+%% Electrode Analysis
 close all
-scalpObject=ScalpObject(project.scalpData, project.info, baselineTime, timeRange,cfg); % Initialize scalp processing
-scalpObject = scalpObject.cleanDatasets(); % remove any missing subjects if any from Scalp data
-scalpObject = scalpObject.standardProcessing(); % standard processing pipeline, 5SD outlier, baseline correction
-scalpObject = scalpObject.calChanData(); % calcualtes all significant electrodes between groups across all conditions
+electrodeObject=ElectrodeObject(project.electrodeData, project.info, baselineTime, timeRange,cfg); % Initialize electrode processing
+electrodeObject = electrodeObject.cleanDatasets(); % remove any missing subjects if any from Electrode data
+electrodeObject = electrodeObject.standardProcessing(); % standard processing pipeline, 5SD outlier, baseline correction
+electrodeObject = electrodeObject.calChanData(); % calcualtes all significant electrodes between groups across all conditions
 
-%% Plotting Scalp Analysis
+%% Plotting Electrode Analysis
 close all
-scalpObject = scalpObject.analyzeScalp(); % Calculates scalp differences based on cfg file and plots scalp topo plots
-scalpObject.plotERPs() % plotting ERP after analyze Scalp. Must run analyzeScalp() before plotting
-scalpObject.plotScalpBar(); % plot grouped bar plots after analyze Scalp. Must run analyzeScalp() before plotting
+electrodeObject = electrodeObject.analyzeElectrode(); % Calculates electrode differences based on cfg file and plots electrode topo plots
+electrodeObject.plotERPs() % plotting ERP after analyze Electrode. Must run analyzeElectrode() before plotting
+electrodeObject.plotElectrodeBar(); % plot grouped bar plots after analyze Electrode. Must run analyzeElectrode() before plotting
 
-%% Scalp Behavior Models
+%% Electrode Behavior Models
 % Formatting behavior table for fitlm 
 behTbl=table();
 rng(1234)
-behTbl.Subject=project.scalpData.Group1.subList';
+behTbl.Subject=project.electrodeData.Group1.subList';
 behTbl.behVar1=rand(1,10)';
-scalpObject = scalpObject.calSigTbl('sig'); 
+electrodeObject = electrodeObject.calSigTbl('sig'); 
 
 % behavior and neural analysis
 neuralVar={'NeuralVarName'}; % Specify here
 baseModel="behVar1 ~ 1+ "; % define model for fitlm - automatically appends neuralVar
 keyColumnName='Subject'; % column name with subjectIds
-scalpObject=scalpObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'modelName');
-scalpObject.neuralBehMdl.modelName_NeuralVarName = extractp(scalpObject.neuralBehMdl.modelName_NeuralVarName,"NeuralVarName",1); % extract all p-values from fitlm
-scalpObject.neuralBehMdl.modelName_NeuralVarName
+electrodeObject=electrodeObject.NeurBehMdl(neuralVar,behTbl,keyColumnName,baseModel,'modelName');
+electrodeObject.neuralBehMdl.modelName_NeuralVarName = extractp(electrodeObject.neuralBehMdl.modelName_NeuralVarName,"NeuralVarName",1); % extract all p-values from fitlm
+electrodeObject.neuralBehMdl.modelName_NeuralVarName
 
 %% Extra Functionality and operations
 %% Transforming data - operates on time series data
 func=@(x) abs(hilbert(x));
-scalpObject = scalpObject.applyFunc(func);
+electrodeObject = electrodeObject.applyFunc(func);
 %% Modify Variables for neural behavioral models
 
-time_list=fieldnames(scalpObject.info.timeRange);
+time_list=fieldnames(electrodeObject.info.timeRange);
 for t=1:length(time_list)
-    tbldata = scalpObject.scalpResults.sigValues.NeuralVarName.(time_list{t}); % get original table data
+    tbldata = electrodeObject.electrodeResults.sigValues.NeuralVarName.(time_list{t}); % get original table data
     [~,tbldata] = calculate_group_means(tbldata, groups, append(time_list(t),'_',groupnames)); % only use newtable. If testing all, then use first output
-    scalpObject.scalpResults.sigValues.NeuralVarName.(time_list{t}) = tbldata;
+    electrodeObject.electrodeResults.sigValues.NeuralVarName.(time_list{t}) = tbldata;
 end

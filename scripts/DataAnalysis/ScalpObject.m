@@ -1,32 +1,32 @@
-classdef ScalpObject < DataAnalysis
+classdef ElectrodeObject < DataAnalysis
     properties
         DATA
-        scalpResults
+        electrodeResults
     end
     
     methods
-        function obj = ScalpObject(DATA, info, baselineTime, timeRange,cfg)
-            % ScalpObject  Constructor for scalp-level EEG analysis object
+        function obj = ElectrodeObject(DATA, info, baselineTime, timeRange,cfg)
+            % ElectrodeObject  Constructor for electrode-level EEG analysis object
             %
-            %   obj = ScalpObject(DATA, info, baselineTime, timeRange, cfg)
+            %   obj = ElectrodeObject(DATA, info, baselineTime, timeRange, cfg)
             %
-            %   Initializes a ScalpObject instance, inheriting from the DataAnalysis
-            %   superclass. This object is designed to process scalp-level EEG data 
+            %   Initializes a ElectrodeObject instance, inheriting from the DataAnalysis
+            %   superclass. This object is designed to process electrode-level EEG data 
             %   (e.g., channel-space time series) for group-level comparisons and 
             %   statistical analysis.
             %
             %   Inputs:
-            %     DATA         - Struct containing scalp EEG data for each group
+            %     DATA         - Struct containing electrode EEG data for each group
             %     info         - Struct with experiment metadata (group names, variables, frequencies, etc.)
             %     baselineTime - 1x2 vector specifying baseline window [start, end] in ms
             %     timeRange    - Struct defining named time windows (e.g., time1 = [0 500])
             %     cfg          - (Optional) Struct of user-defined analysis settings
             %
             %   Output:
-            %     obj          - Instantiated ScalpObject with all properties initialized
+            %     obj          - Instantiated ElectrodeObject with all properties initialized
             %
             %   Example:
-            %     obj = ScalpObject(project.scalpData, project.info, [-250 -50], timeRange, cfg);
+            %     obj = ElectrodeObject(project.electrodeData, project.info, [-250 -50], timeRange, cfg);
             %
             if nargin<5 || isempty(cfg)
                 cfg=struct();
@@ -37,15 +37,15 @@ classdef ScalpObject < DataAnalysis
         end
         
         function obj=calChanData(obj)
-            % calChanData  Compute scalp-level channel data across time windows
+            % calChanData  Compute electrode-level channel data across time windows
             %
-            %   obj = calChanData(obj) averages the scalp EEG data across the time
+            %   obj = calChanData(obj) averages the electrode EEG data across the time
             %   dimension for each group, frequency band, and time window specified in
             %   the object's metadata. The resulting channel-level data is stored in 
-            %   `obj.scalpResults.chanData`.
+            %   `obj.electrodeResults.chanData`.
             %
             %   Inputs:
-            %     obj - ScalpObject instance containing:
+            %     obj - ElectrodeObject instance containing:
             %              • obj.DATA: EEG data organized by group
             %              • obj.info: struct with fields:
             %                  - groupNames: group labels
@@ -55,12 +55,12 @@ classdef ScalpObject < DataAnalysis
             %
             %   Outputs:
             %     obj - The same object with the following field populated:
-            %              • obj.scalpResults.chanData.(group).(variable).(time).(freq)
+            %              • obj.electrodeResults.chanData.(group).(variable).(time).(freq)
             %                where data is averaged across time.
             %
             %   Example:
-            %     scalpObj = scalpObj.calChanData();
-            disp('-----------Calulating channel data and saving in obj.scalpResults.chanData-----------')
+            %     electrodeObj = electrodeObj.calChanData();
+            disp('-----------Calulating channel data and saving in obj.electrodeResults.chanData-----------')
             properties=obj.info.variables;
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
@@ -74,19 +74,19 @@ classdef ScalpObject < DataAnalysis
                         for f=1:length(obj.info.freq_list)
                             freq=obj.info.freq_list{f};
                             data = squeeze(nanmean(obj.getGroupData(group,property,freq,timeName),3));
-                            obj.scalpResults.chanData.(obj.info.groupNames{n}).(property).(timeNames{t}).(obj.info.freq_list{f}) = data;
+                            obj.electrodeResults.chanData.(obj.info.groupNames{n}).(property).(timeNames{t}).(obj.info.freq_list{f}) = data;
                         end
                     end
                 end
             end
         end
         
-        function obj=analyzeScalp(obj,varargin)
+        function obj=analyzeElectrode(obj,varargin)
             
-            %   [...] = analyzeScalp(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
+            %   [...] = analyzeElectrode(...,'PARAM1',VAL1,'PARAM2',VAL2,...) specifies additional
             %   parameters and their values. Will only analyze conditions that satisfy 
             %   all conditions specified. Default run will do all
-            %   combinations. Option to plot scalp topo plots
+            %   combinations. Option to plot electrode topo plots
             %   Valid parameters are the following:
             %
             %        Parameter  Value
@@ -106,9 +106,9 @@ classdef ScalpObject < DataAnalysis
             %                        ex: [1,2] will do groups 1 vs 2
             %                            [1,2;1,3] is 1 vs 2 and 1 vs 3
             %         'FDRflag'      1/0 flag for fdr corrected p-values 
-            %                        within each scalp map (# electrodes)
+            %                        within each electrode map (# electrodes)
             %                        Default is 1 (fdr corrected values).
-            %         'toPlot'       1/0 flag for plotting scalp topo
+            %         'toPlot'       1/0 flag for plotting electrode topo
             %                        plots. Default is 1
             %         'isnormal'    'auto' 1 0 |
             %                        indicates distribution of the data for
@@ -119,8 +119,8 @@ classdef ScalpObject < DataAnalysis
             %                        adtest. 'auto' is default.
             %   Outputs:
             %     obj - The same object with the following field populated:
-            %              • obj.scalpResults.sigElectrodes
-            %              • obj.scalpResults.sigElectrodesP
+            %              • obj.electrodeResults.sigElectrodes
+            %              • obj.electrodeResults.sigElectrodesP
 
             
             cfg = parseCfgOrArgs(obj, varargin{:});
@@ -133,13 +133,13 @@ classdef ScalpObject < DataAnalysis
             FDRflag    = cfg.FDRflag;
             toPlot     = cfg.toPlot;
             isnormal   = cfg.isnormal;
-            disp('-----------Calculating group differences and saving in obj.scalpObject.scalpResults------------')
+            disp('-----------Calculating group differences and saving in obj.electrodeObject.electrodeResults------------')
 
 
             % Initialize results
-            if ~isfield(obj.scalpResults,'sigElectrodes')
-                obj.scalpResults.sigElectrodes=struct();
-                obj.scalpResults.sigElectrodesP=struct();
+            if ~isfield(obj.electrodeResults,'sigElectrodes')
+                obj.electrodeResults.sigElectrodes=struct();
+                obj.electrodeResults.sigElectrodesP=struct();
             end
 
             % normality test
@@ -155,7 +155,7 @@ classdef ScalpObject < DataAnalysis
                             freq=freq2plot{f};
                             for comb = unique(combinations)
                                 groupName=obj.info.groupNames{comb};
-                                tempData = obj.scalpResults.chanData.(groupName).(property).(timeName).(freq);
+                                tempData = obj.electrodeResults.chanData.(groupName).(property).(timeName).(freq);
                                 all_data = [all_data reshape(tempData,1,[])];
                             end
                         end
@@ -163,7 +163,7 @@ classdef ScalpObject < DataAnalysis
                 end
                 isnormal = ~adtest(all_data);
             end
-            obj.scalpResults.isnormal=isnormal;
+            obj.electrodeResults.isnormal=isnormal;
             for p=1:length(vars2plot)
                 property=vars2plot{p}; % get property name
                 for comb = 1:size(combinations, 1)
@@ -186,7 +186,7 @@ classdef ScalpObject < DataAnalysis
                                 pvals = fdr(pvals);
                             end
 
-                            obj = addScalpSig(obj,property, timeName, append(group2,"_",group1), freq, pvals); 
+                            obj = addElectrodeSig(obj,property, timeName, append(group2,"_",group1), freq, pvals); 
                             if toPlot
                                 figCount = figCount + 1;
                                 subplot(length(times2plot),length(freq2plot),figCount)
@@ -213,7 +213,7 @@ classdef ScalpObject < DataAnalysis
             %   plotERPs(obj, 'PARAM1', val1, 'PARAM2', val2, ...)
             %
             %   This method visualizes averaged ERP waveforms for different groups
-            %   using the scalp-level data in the object. It supports plotting across
+            %   using the electrode-level data in the object. It supports plotting across
             %   multiple frequencies, channels, and time windows with optional error
             %   bars.
             %
@@ -232,7 +232,7 @@ classdef ScalpObject < DataAnalysis
             %                     
             %
             %   Behavior:
-            %     - If 'chans2plot' is set to 'all', only significant electrodes (from obj.scalpResults.sigElectrodes)
+            %     - If 'chans2plot' is set to 'all', only significant electrodes (from obj.electrodeResults.sigElectrodes)
             %       are included for each frequency/time combination.
             %     - Uses `shadedErrorBar` for optional error visualizations.
             %
@@ -254,7 +254,7 @@ classdef ScalpObject < DataAnalysis
             groups2plot = cfg.groups2plot;
             N=length(groups2plot);
 
-            sigElectrodes=obj.scalpResults.sigElectrodes;
+            sigElectrodes=obj.electrodeResults.sigElectrodes;
             for p=1:length(vars2plot)
                 property=vars2plot{p};
                 time_list = intersect(fieldnames(sigElectrodes.(property)),times2plot);
@@ -342,8 +342,8 @@ classdef ScalpObject < DataAnalysis
                 end
             end
         end
-        function plotScalpBar(obj,varargin)
-            %   [...] = plotScalpBar(...,'PARAM1',VAL1,'PARAM2',VAL2,...) 
+        function plotElectrodeBar(obj,varargin)
+            %   [...] = plotElectrodeBar(...,'PARAM1',VAL1,'PARAM2',VAL2,...) 
             %   Plots grouped bar plots which are significantly different. 
             %   Non-FDR corrected pvalues. 
             %   specifies additional parameters and their values.  
@@ -385,7 +385,7 @@ classdef ScalpObject < DataAnalysis
             combinations = nchoosek(groups2plot,2);
             N=length(groups);
 
-            sigElectrodes=obj.scalpResults.sigElectrodes;
+            sigElectrodes=obj.electrodeResults.sigElectrodes;
             for p=1:length(vars2plot)
                 property=vars2plot{p};
                 time_list = intersect(fieldnames(sigElectrodes.(property)),times2plot);
@@ -476,19 +476,19 @@ classdef ScalpObject < DataAnalysis
             end
         end
 
-        function obj = addScalpSig(obj,property, timeName, groupDiff, freq, pvals)
+        function obj = addElectrodeSig(obj,property, timeName, groupDiff, freq, pvals)
             % Outputs:
             %
             %   Results are saved into the following fields of the input object `obj`:
             %
-            %   - obj.scalpResults.sigElectrodesP.(property).(timeName).(group1_group2).(freq)
+            %   - obj.electrodeResults.sigElectrodesP.(property).(timeName).(group1_group2).(freq)
             %       Raw p-values for group comparisons at each electrode.
             %       These are not FDR-corrected.
             %
-            %   - obj.scalpResults.sigElectrodes.(property).(timeName).(freq)
+            %   - obj.electrodeResults.sigElectrodes.(property).(timeName).(freq)
             %       Significance results across electrodes 
             %       These are not FDR-corrected
-            obj.scalpResults.sigElectrodesP.(property).(timeName).(groupDiff).(freq)=pvals;
+            obj.electrodeResults.sigElectrodesP.(property).(timeName).(groupDiff).(freq)=pvals;
     
             chanlabels={obj.info.chanlocs.labels}; % just the cell array of labels
             chans2add = chanlabels(pvals<0.05); % significant channels to add to list
@@ -496,21 +496,21 @@ classdef ScalpObject < DataAnalysis
             % Check if the field already exists
 
 
-            if isfield(obj.scalpResults, 'sigElectrodes') && isfield(obj.scalpResults.sigElectrodes, property) && ...
-                isfield(obj.scalpResults.sigElectrodes.(property), timeName) && isfield(obj.scalpResults.sigElectrodes.(property).(timeName), freq)
+            if isfield(obj.electrodeResults, 'sigElectrodes') && isfield(obj.electrodeResults.sigElectrodes, property) && ...
+                isfield(obj.electrodeResults.sigElectrodes.(property), timeName) && isfield(obj.electrodeResults.sigElectrodes.(property).(timeName), freq)
                 % Get the existing cell array
-                existingArray = obj.scalpResults.sigElectrodes.(property).(timeName).(freq);
+                existingArray = obj.electrodeResults.sigElectrodes.(property).(timeName).(freq);
                 % Check if the new letter is different from the existing ones
                 chans2add = setdiff(chans2add, existingArray);
-                obj.scalpResults.sigElectrodes.(property).(timeName).(freq) = [existingArray, chans2add];
+                obj.electrodeResults.sigElectrodes.(property).(timeName).(freq) = [existingArray, chans2add];
             elseif ~isempty(chans2add)
                 % Create a new cell array with the new letter
-                obj.scalpResults.sigElectrodes.(property).(timeName).(freq) = chans2add;
+                obj.electrodeResults.sigElectrodes.(property).(timeName).(freq) = chans2add;
               
             end
 
-            if ~isfield(obj.scalpResults.sigElectrodes, property)
-                obj.scalpResults.sigElectrodes.(property)=struct();
+            if ~isfield(obj.electrodeResults.sigElectrodes, property)
+                obj.electrodeResults.sigElectrodes.(property)=struct();
             end
         end
         %--------------END OF CLASS METHODS-----------------------%
@@ -519,7 +519,7 @@ classdef ScalpObject < DataAnalysis
 end
 
 
-%% Plotting scalpmap with significant electrodes
+%% Plotting electrodemap with significant electrodes
 function plotSigTopo(s1,s2,chanlocs,pvals, key)
 % plotSigTopo  Plot a topographic map of EEG channel differences with significant electrodes
 %
@@ -538,7 +538,7 @@ function plotSigTopo(s1,s2,chanlocs,pvals, key)
 %   This function:
 %       - Computes average difference between s2 and s1
 %       - Masks and labels significant electrodes (p < 0.05)
-%       - Plots scalp topography using EEGLAB's topoplot
+%       - Plots electrode topography using EEGLAB's topoplot
 %
 %   Example:
 %       plotSigTopo(data1, data2, EEG.chanlocs, pvals, EEG.chanlabels)
