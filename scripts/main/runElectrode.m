@@ -65,9 +65,12 @@ func=@(x) abs(hilbert(x));
 electrodeObject = electrodeObject.applyFunc(func);
 %% Modify Variables for neural behavioral models
 
-time_list=fieldnames(electrodeObject.info.timeRange);
+time_list=fieldnames(electrodeObject.electrodeResults.sigValues.NeuralVarName);
+groups = {'theta'}; % average 
+groupnames = {'theta'};
 for t=1:length(time_list)
     tbldata = electrodeObject.electrodeResults.sigValues.NeuralVarName.(time_list{t}); % get original table data
+
     [~,tbldata] = calculate_group_means(tbldata, groups, append(time_list(t),'_',groupnames)); % only use newtable. If testing all, then use first output
-    electrodeObject.electrodeResults.sigValues.NeuralVarName.(time_list{t}) = tbldata;
+    tbldata
 end

@@ -301,7 +301,7 @@ classdef ElectrodeObject < DataAnalysis
                                 hold on
                                 h = gobjects(N, 1); % Preallocate an array for the line handles
                                 for n=1:N
-                                    d=obj.getGroupData(obj.info.groupNames{n},property,freq,time,elecIdxs);
+                                    d=obj.getGroupData(obj.info.groupNames{groups2plot(n)},property,freq,time,elecIdxs);
                                     data(:,n) = squeeze(nanmean(d,4));
                                     CI=[];
                                     sem=std(squeeze(d),0,2)/sqrt(size(d,4));

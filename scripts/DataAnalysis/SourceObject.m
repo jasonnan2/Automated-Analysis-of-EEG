@@ -237,7 +237,7 @@ classdef SourceObject < DataAnalysis
         %         each predefined network.
         % Validate netwrk input
         
-            if nargin<1
+            if nargin<2
                 error('Require netwrk definition')
             end
             if ~isstruct(netwrk)
@@ -636,7 +636,7 @@ classdef SourceObject < DataAnalysis
                             ylabel(freq,'fontweight','bold','fontsize',12)
             
                             subplot(length(freq2plot),3,count)
-                            plotNetConn(tanh(nanmean(atanh(s2),3)), pvals1,netwrk)
+                            plotNetConn(tanh(nanmean(atanh(s2),3)), pvals2,netwrk)
                             count=count+1;
                             if f==1
                                 title(group2)

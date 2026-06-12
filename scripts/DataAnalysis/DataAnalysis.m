@@ -276,7 +276,7 @@ classdef DataAnalysis
                                data =[data; subdata];
                                subsOrig = obj.DATA.(obj.info.groupNames{n}).subList;
                                missing = obj.DATA.(obj.info.groupNames{n}).missingSubs{p_idx}(2:end);
-                               subsOrig(contains(subsOrig,missing))=[];
+                               subsOrig(ismember(subsOrig,missing))=[];
                                allsubs=[allsubs,reshape(subsOrig, 1, [])];
                                groupname=[groupname repmat(obj.info.groupNames(n),1,length(subdata))];
                             end
