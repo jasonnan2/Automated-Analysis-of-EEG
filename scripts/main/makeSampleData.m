@@ -19,14 +19,14 @@ project.info.roi = roi;           % Region of interest structure
 project.info.experimentalDesign = 'twoSample'; % Experimental design type
 %% Replace with actual data - sample data generated below
 % % Store generated scalp data into the project structure
-% project.scalpData.Group1.NeuralVarName = Group1EEG;
-% project.scalpData.Group2.NeuralVarName = Group2EEG;
-% project.scalpData.Group3.NeuralVarName = Group3EEG;
+% project.electrodeData.Group1.NeuralVarName = Group1EEG;
+% project.electrodeData.Group2.NeuralVarName = Group2EEG;
+% project.electrodeData.Group3.NeuralVarName = Group3EEG;
 % 
 % % Assign subject IDs
-% project.scalpData.Group1.subList = subList1;
-% project.scalpData.Group2.subList = subList2;
-% project.scalpData.Group3.subList = subList3;
+% project.electrodeData.Group1.subList = subList1;
+% project.electrodeData.Group2.subList = subList2;
+% project.electrodeData.Group3.subList = subList3;
 % 
 % % Store generated source data into the project structure
 % project.sourceData.Group1.NeuralVarName = Group1Source;
