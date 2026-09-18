@@ -73,7 +73,10 @@ classdef ElectrodeObject < DataAnalysis
                         timeName=timeNames{t};
                         for f=1:length(obj.info.freq_list)
                             freq=obj.info.freq_list{f};
-                            data = squeeze(nanmean(obj.getGroupData(group,property,freq,timeName),3));
+
+                            [rawData, s1Subs] = obj.getGroupData(group,property,freq,timeName);
+                            data = squeeze(nanmean(rawData, 3));
+
                             obj.electrodeResults.chanData.(obj.info.groupNames{n}).(property).(timeNames{t}).(obj.info.freq_list{f}) = data;
                         end
                     end
@@ -179,9 +182,15 @@ classdef ElectrodeObject < DataAnalysis
                         
                         for f=1:length(freq2plot)
                             freq=freq2plot{f};
-                            s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
-                            s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
-                            [pvals]=obj.calGroupSig(s1,s2,obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
+
+                            [rawS1, s1Subs] = obj.getGroupData(group1, property, freq, timeName);
+                            [rawS2, s2Subs] = obj.getGroupData(group2, property, freq, timeName);
+                            
+                            % Average over 3rd dimension and squeeze
+                            s1 = squeeze(nanmean(rawS1, 3));
+                            s2 = squeeze(nanmean(rawS2, 3));
+
+                            [pvals]=obj.calGroupSig(s1,s2,s1Subs, s2Subs, obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
                             if FDRflag
                                 pvals = fdr(pvals);
                             end
@@ -436,7 +445,10 @@ classdef ElectrodeObject < DataAnalysis
                                 hold on
                                 % Get all the group data
                                 for n=1:N
-                                    subdata = squeeze(nanmean(obj.getGroupData(groups{n},property,freq,timeName,elecIdxs),3));
+
+                                    rawSubData = obj.getGroupData(groups{n},property,freq,timeName,elecIdxs);
+                                    subdata = squeeze(nanmean(rawSubData, 3));
+
                                     data(n) = nanmean(subdata);
                                     sem(n) = std(subdata)/sqrt(length(subdata));
                                 end
@@ -449,9 +461,13 @@ classdef ElectrodeObject < DataAnalysis
                                     group1=groups{combinations(comb, 1)};
                                     group2=groups{combinations(comb, 2)};
                                     s1=[];s2=[];
-                                    s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName,elecIdxs),3));
-                                    s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName,elecIdxs),3));
-                                    pvals(comb,:)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign);
+
+                                    [rawS1, s1Subs] = obj.getGroupData(group1,property,freq,timeName,elecIdxs);
+                                    [rawS2, s2Subs] =obj.getGroupData(group2,property,freq,timeName,elecIdxs);
+                                    s1 = squeeze(nanmean(rawS1, 3));
+                                    s2 = squeeze(nanmean(rawS2, 3));
+
+                                    pvals(comb,:)=obj.calGroupSig(s1,s2,s1Subs, s2Subs,obj.info.experimentalDesign);
                                     group1Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 1)-1) * groupwidth / (2*nbars);
                                     group2Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 2)-1) * groupwidth / (2*nbars);
                                     A=[group1Location;group2Location]';

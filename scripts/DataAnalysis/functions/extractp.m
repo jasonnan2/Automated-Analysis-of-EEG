@@ -12,10 +12,11 @@ for i=1:height(behModels)
         varName=append(template,behModels{i,1}{:});
     end
     neuralidx = find(strcmp(varName,model.CoefficientNames));
-    pvals(i) = model.Coefficients.pValue(neuralidx);
+    sigDirection = sign(model.Coefficients.tStat(neuralidx));
+    pvals(i) = sigDirection*model.Coefficients.pValue(neuralidx);
 end
 behModels.(append(template,'neuralP'))=pvals';
 if ~showall
-    behModels(behModels.(append(template,'neuralP'))>0.05,:)=[];
+    behModels(abs(behModels.(append(template,'neuralP')))>0.05,:)=[];
 end
 end

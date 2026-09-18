@@ -140,8 +140,13 @@ classdef SourceObject < DataAnalysis
                             group2=obj.info.groupNames{combinations(comb, 2)};
                             s1=obj.sourceResults.netData.(group1).(property).(timeName).(freq);
                             s2=obj.sourceResults.netData.(group2).(property).(timeName).(freq);
+                            
 
-                            pvals(comb,:)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign,isnormal);
+                            [~, s1Subs] = obj.getGroupData(group1,property,freq,timeName);
+                            [~, s2Subs] =obj.getGroupData(group2,property,freq,timeName);
+
+
+                            pvals(comb,:)=obj.calGroupSig(s1,s2,s1Subs, s2Subs, obj.info.experimentalDesign,isnormal);
                             if FDRflag
                                 pvals(comb,:)=fdr(pvals(comb,:));
                             end
@@ -413,9 +418,14 @@ classdef SourceObject < DataAnalysis
                         for f=1:length(freq2plot)
                             freq=freq2plot{f};
                             % average in time dimension
-                            s1 = squeeze(nanmean(obj.getGroupData(group1,property,freq,timeName),3));
-                            s2 = squeeze(nanmean(obj.getGroupData(group2,property,freq,timeName),3));
-                            pvals(:,f)=obj.calGroupSig(s1,s2,obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
+
+                            [rawS1, s1Subs] = obj.getGroupData(group1,property,freq,timeName);
+                            [rawS2, s2Subs] =obj.getGroupData(group2,property,freq,timeName);
+                            s1 = squeeze(nanmean(rawS1, 3));
+                            s2 = squeeze(nanmean(rawS2, 3));
+
+                            pvals(:,f)=obj.calGroupSig(s1,s2,s1Subs, s2Subs, obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
+
 
                             if FDRflag
                                 tempP = fdr(pvals(rois2plot,f)); % only fdr correct ROIs of interest

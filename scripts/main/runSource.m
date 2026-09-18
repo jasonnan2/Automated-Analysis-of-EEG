@@ -62,8 +62,9 @@ sourceObject.plotNetConnectivity('FDRflag',1);      % Plot network connectivity 
 % Formatting behavior table for fitlm 
 behTbl=table();
 rng(1234)
-behTbl.Subject=project.scalpData.Group1.subList';
-behTbl.behVar1=rand(1,10)';
+behTbl.Subject=[project.electrodeData.Group1.subList'; project.electrodeData.Group3.subList'; project.electrodeData.Group3.subList'];
+behTbl.behVar1=rand(1,30)';
+behTbl.group = repmat({'Group1';'Group2';'Group3'},10,1);
 
 neuralVar={'NeuralVarName'};
 baseModel="behVar1 ~ 1+ "; % define model for fitlm - automatically appends neuralVar

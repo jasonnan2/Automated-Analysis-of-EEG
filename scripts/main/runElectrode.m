@@ -47,8 +47,9 @@ electrodeObject.plotElectrodeBar(); % plot grouped bar plots after analyze Elect
 % Formatting behavior table for fitlm 
 behTbl=table();
 rng(1234)
-behTbl.Subject=project.electrodeData.Group1.subList';
-behTbl.behVar1=rand(1,10)';
+behTbl.Subject=[project.electrodeData.Group1.subList'; project.electrodeData.Group3.subList'; project.electrodeData.Group3.subList'];
+behTbl.behVar1=rand(1,30)';
+behTbl.group = repmat({'Group1';'Group2';'Group3'},10,1);
 electrodeObject = electrodeObject.calSigTbl('sig'); 
 
 % behavior and neural analysis
@@ -64,13 +65,11 @@ electrodeObject.neuralBehMdl.modelName_NeuralVarName
 func=@(x) abs(hilbert(x));
 electrodeObject = electrodeObject.applyFunc(func);
 %% Modify Variables for neural behavioral models
-
 time_list=fieldnames(electrodeObject.electrodeResults.sigValues.NeuralVarName);
 groups = {'theta'}; % average 
 groupnames = {'theta'};
 for t=1:length(time_list)
     tbldata = electrodeObject.electrodeResults.sigValues.NeuralVarName.(time_list{t}); % get original table data
-
     [~,tbldata] = calculate_group_means(tbldata, groups, append(time_list(t),'_',groupnames)); % only use newtable. If testing all, then use first output
     tbldata
 end

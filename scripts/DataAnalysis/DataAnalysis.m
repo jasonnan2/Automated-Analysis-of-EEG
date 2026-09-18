@@ -161,7 +161,7 @@ classdef DataAnalysis
                 groupedData(:,:,:,1:size(obj.DATA.(obj.info.groupNames{i}).(property),4))=[];
             end
         end
-        function s = getGroupData(obj,group,property,freq,timeName,chans)
+        function [s, includedSubs] = getGroupData(obj,group,property,freq,timeName,chans)
             % group | name of the group
             % property | string of variable
             % freq | string of frequency band. if 'all', gets all freq
@@ -183,6 +183,10 @@ classdef DataAnalysis
                 chans = 1:size(obj.DATA.(group).(property), 2); % assuming channels are the 2nd dimension
             end
             s = obj.DATA.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
+            allVars = obj.info.variables; 
+            currentVarIdx = find(strcmp(property, allVars));
+            missingSubs = setdiff(obj.DATA.(group).missingSubs{currentVarIdx}, property);
+            includedSubs = setdiff(obj.DATA.(group).subList,missingSubs);
         end
         
         function obj=applyFunc(obj,func)
@@ -289,7 +293,7 @@ classdef DataAnalysis
                 end
             end
         end
-        function obj=NeurBehMdl(obj,neuralVar,behTbl,keyColumnName,baseModel,modelname)
+        function obj=NeurBehMdl(obj,neuralVar,behTbl,keyColumnName,baseModel,basemodelname)
             % neuralVar     | cell array of neural variable to test against
             %                 base model
             % behTbl        | table with behavior/redcap data which you want to correlate
@@ -308,7 +312,7 @@ classdef DataAnalysis
                 if nargin<5
                     modelname=makeValidFieldName(append(baseModel,"_",property));
                 else
-                    modelname=append(modelname,"_",property);
+                    modelname=append(basemodelname,"_",property);
                 end
                 sigStruct=obj.(results).sigValues.(property);
                 timeNames=fieldnames(sigStruct);
@@ -322,13 +326,13 @@ classdef DataAnalysis
                     behTbl.(keyColumnName)=lower(behTbl.(keyColumnName));
                     neuralTbl.subID = cellfun(@(x) erase(x, ['_' extractAfter(x, '_')]), neuralTbl.subID, 'UniformOutput', false);
                     % Join tables
-                    tbldata = innerjoin(neuralTbl, behTbl, 'LeftKeys', 'subID', 'RightKeys', keyColumnName,'RightVariables', ...
+                    tbldata = innerjoin(neuralTbl, behTbl, 'LeftKeys', {'subID', 'group'}, 'RightKeys', {keyColumnName, 'group'},'RightVariables', ...
                                 setdiff(behTbl.Properties.VariableNames,neuralTbl.Properties.VariableNames));
                 
                     if height(tbldata)~=height(neuralTbl)
                         warning('New Table is missing some subjects, please make sure behTbl has all the subejcts present')
                     end
-                    obj.(results).sigValues.(property).(timeNames{t}) = tbldata;
+                    obj.(results).sigValues.(property).(timeNames{t}) = unique(tbldata,'rows');
                     NBtbl =[ NBtbl;obj.calNeurBehMdl(baseModel,tbldata,varNames)];
                 end
 
@@ -388,36 +392,54 @@ classdef DataAnalysis
         end
 
         % Function to calculate which electrodes are significant btw two groups
-        function [pvals,stats]=calGroupSig(s1,s2,experimentalDesign, isnormal)
+        function [pvals,stats]=calGroupSig(s1,s2,s1Subs, s2Subs, experimentalDesign, isnormal)
             % s1 and s2 are data matrices size C channels x N subjects
             % experimentalDesign is string for 'paired' or 'twoSample'
             % Perform t-tests
-            if nargin<4
+            if nargin<6
                 isnormal=1; % default to ttest
             end
 
             s1=squeeze(s1);
             s2=squeeze(s2);
             
+            if strcmp(experimentalDesign, 'paired')
+                [commonSubs, idx1, idx2] = intersect(s1Subs, s2Subs, 'stable');
+                    
+                if isempty(commonSubs)
+                    error('No matching subjects found between s1 and s2.');
+                end
+                aligning=1;
+                if isvector(s1)
+                    s1 = s1(idx1);
+                    s2 = s2(idx2);
+                else
+                    s1 = s1(:, idx1);
+                    s2 = s2(:, idx2);
+                end
+            end
+
             if iscolumn(s1)
                 s1=s1';
             end
             if iscolumn(s2)
                 s2=s2';
             end
-            
+
             for chan = 1:size(s1,1)
                 % Get non-NaN indices
-                if isnormal
-                    if strcmp(experimentalDesign,'paired')
+                
+                if strcmp(experimentalDesign, 'paired')
+                    
+                    if isnormal
                         [~,pvals(chan),~,stats(chan)] = ttest(s1(chan,:), s2(chan,:));
-                    elseif strcmp(experimentalDesign,'twoSample')
-                        [~,pvals(chan),~,stats(chan)] = ttest2(s1(chan,:), s2(chan,:));
-                    end
-                elseif ~isnormal
-                    if strcmp(experimentalDesign,'paired')
+                    elseif ~isnormal
                         [pvals(chan),~,stats(chan)] = signrank(s1(chan,:), s2(chan,:));
-                    elseif strcmp(experimentalDesign,'twoSample')
+                    end
+                elseif strcmp(experimentalDesign,'twoSample')
+                    if isnormal
+                        [~,pvals(chan),~,stats(chan)] = ttest2(s1(chan,:), s2(chan,:));
+                    elseif ~isnormal
                         [pvals(chan),~,stats(chan)] = ranksum(s1(chan,:), s2(chan,:));
                     end
                 end
