@@ -379,8 +379,6 @@ classdef SourceObject < DataAnalysis
                 end
             end
 
-
-
             % normality test
             if strcmp(isnormal,'auto')
                 % Get all Data
@@ -621,11 +619,14 @@ classdef SourceObject < DataAnalysis
                             freq=freq2plot{f};
                             s1 = squeeze(obj.netConnectivity.(group1).(property).(timeName).(freq));
                             s2 = squeeze(obj.netConnectivity.(group2).(property).(timeName).(freq));
+                            [~, s1Subs] = obj.getGroupData(group1,property,freq,timeName);
+                            [~, s2Subs] =obj.getGroupData(group2,property,freq,timeName);
+
                             pvalsDiff=[]; pvals1=[];pvals2=[];
                             for a=1:size(s1,1)
-                                pvalsDiff(:,a)=obj.calGroupSig(squeeze(atanh(s1(a,:,:))),squeeze(atanh(s2(a,:,:))),obj.info.experimentalDesign,isnormal);
-                                pvals1(:,a) = obj.calGroupSig(squeeze(atanh(s1(a,:,:))),zeros(size(s1,[2,3])),'paired',isnormal);
-                                pvals2(:,a) = obj.calGroupSig(squeeze(atanh(s2(a,:,:))),zeros(size(s2,[2,3])),'paired',isnormal);
+                                pvalsDiff(:,a)=obj.calGroupSig(squeeze(atanh(s1(a,:,:))),squeeze(atanh(s2(a,:,:))),s1Subs, s2Subs, obj.info.experimentalDesign,isnormal);
+                                pvals1(:,a) = obj.calGroupSig(squeeze(atanh(s1(a,:,:))),zeros(size(s1,[2,3])),s1Subs, s1Subs,'paired',isnormal);
+                                pvals2(:,a) = obj.calGroupSig(squeeze(atanh(s2(a,:,:))),zeros(size(s2,[2,3])),s2Subs, s2Subs,'paired',isnormal);
                             end
                             
                             if FDRflag==1
@@ -653,7 +654,7 @@ classdef SourceObject < DataAnalysis
                             end
             
                             subplot(length(freq2plot),3,count)
-                            plotNetConn(tanh(nanmean(atanh(s2)-atanh(s1),3)), pvalsDiff,netwrk)
+                            plotNetConn(tanh(nanmean(atanh(s2),3)-nanmean(atanh(s1),3)), pvalsDiff,netwrk)
                             count=count+1;
                             if f==1
                                 title(group2 + "-" + group1)
