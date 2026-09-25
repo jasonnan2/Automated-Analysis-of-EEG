@@ -270,10 +270,10 @@ classdef DataAnalysis
                         for c=1:length(allChans)
                             freq=freq_list{f};
                             chan=allChans{c};
-                            elecIdxs = find(strcmp({obj.info.chanlocs.labels},chan ));
-                            if isempty(elecIdxs)
-                                elecIdxs = find(strcmp(obj.info.roi,chan ));
-                            end
+                            elecIdxs = find(strcmp(chanSet,chan ));
+%                             if isempty(elecIdxs)
+%                                 elecIdxs = find(strcmp(obj.info.roi,chan ));
+%                             end
                             data=[];allsubs=[];groupname=[];
                             for n=1:N % iterate groups
                                subdata = [squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3))];
