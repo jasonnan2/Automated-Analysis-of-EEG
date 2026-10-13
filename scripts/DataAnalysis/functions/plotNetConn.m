@@ -14,7 +14,7 @@ function plotNetConn(netConn, p_mat,netwrk,varargin )
 %     'MarkerSize' - Size of the significance markers (default: 12)
 %     'LineWidth'  - Line width of the markers (default: 2)
 %     'FontSize'   - Font size for axis tick labels (default: 12)
-%     'Colormap'   - Colormap for the heatmap (default: parula)
+%     'Colormap'   - Colormap for the heatmap (default: red-blue-gradient)
 %   Visualization Details:
 %     - Uses imagesc to display the connectivity matrix
 %     - Highlights significant connections with red '+' markers
@@ -28,18 +28,27 @@ p = inputParser;
 addParameter(p, 'MarkerSize', 12);
 addParameter(p, 'LineWidth', 2);
 addParameter(p, 'FontSize', 12);
-addParameter(p, 'Colormap', parula);
+
+cn=256;
+bluePart = [linspace(0.3, 1, cn)', linspace(0.3, 1, cn)', ones(cn, 1)];
+redPart  = [ones(cn, 1), linspace(1, 0.3, cn)', linspace(1, 0.3, cn)'];
+defaultCmap = [bluePart; redPart];
+addParameter(p, 'Colormap', defaultCmap);
 parse(p, varargin{:});
 opts = p.Results;
-
-
 
 axis tight
 p_mask=flipud(p_mat<0.05);
 hold on
 imagesc(flipud(netConn))
+
+max_val = max(abs(netConn(:)));
+if max_val > 0
+    clim([-max_val, max_val]);
+end
+colormap(gca, opts.Colormap);
 [xax,yax]=meshgrid(1:size(p_mask,2),1:size(p_mask,1));
-plot(xax(p_mask), yax(p_mask),'r+','MarkerSize',12,'linewidth',2)
+plot(xax(p_mask), yax(p_mask),'k+','MarkerSize',12,'linewidth',2)
 colorbar()
 hold off
 
