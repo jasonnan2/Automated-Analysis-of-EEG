@@ -307,6 +307,17 @@ classdef DataAnalysis
             fnames = fieldnames(obj);
             results = fnames{contains(fnames,'Results')};
             timeNames = fieldnames(obj.info.timeRange);
+
+            if ~ismember('group', behTbl.Properties.VariableNames)
+                error("behTbl must contain group information saved in a column called 'group'")
+            end
+            if ~ismember(keyColumnName, behTbl.Properties.VariableNames)
+                error("keyColumnName must match a column in behTbl")
+            end
+
+
+
+
             for p=1:length(neuralVar)
                 property = neuralVar{p};
                 if nargin<5
@@ -333,12 +344,26 @@ classdef DataAnalysis
                         warning('New Table is missing some subjects, please make sure behTbl has all the subejcts present')
                     end
                     obj.(results).sigValues.(property).(timeNames{t}) = unique(tbldata,'rows');
-                    NBtbl =[ NBtbl;obj.calNeurBehMdl(baseModel,tbldata,varNames)];
+                    if strcmp(obj.info.experimentalDesign, 'twoSample')
+                        NBtbl =[ NBtbl;obj.calNeurBehMdl(baseModel,tbldata,varNames)];
+                    elseif strcmp(obj.info.experimentalDesign, 'paired')
+                        if ~isfield(obj.info, 'timepointOrder')
+                            error('Please specify obj.info.timepointOrder for longitudinal models')
+                        end
+                        if length(obj.info.timepointOrder)>2
+                            error('Neural Behavioral Model only supports two time point models for now.')
+                        end
+                        NBtbl =[ NBtbl;obj.calNeurBehMdlPrePostDiff(baseModel,tbldata,varNames, obj.info.timepointOrder)];
+                    else
+                        error("obj.info.experimentalDesign must be 'paired' or 'twoSample'")
+                    end
+
                 end
 
-                count=0;
+                count=1;
+                baseModelName = modelname;
                 while isfield(obj.neuralBehMdl,modelname)
-                    modelname = modelname+string(count);
+                    modelname = baseModelName+string(count);
                     count=count+1;
                 end
 
@@ -491,17 +516,90 @@ classdef DataAnalysis
             pvals=[];
             for i=1:length(varNames)
                 modelDef =  baseModel+varNames{i};
+                neuralVar = varNames{i};
+                Mdlparts = strsplit(char(baseModel),'~');
+                behVar = deblank(Mdlparts{1});
+                keepCols = {'subID', 'group', behVar, neuralVar};
+                smallTbl = tbldata(:,keepCols);
                 model = fitlm(tbldata,modelDef,'RobustOpts','on'); 
                 models{i}=model;
+                dataTbl{i} = smallTbl;
                 neuralidx = find(strcmp(varNames{i},model.CoefficientNames));
                 pvals(i) = model.Coefficients.pValue(neuralidx); % Check here to make sure its always the second
             end
             neural_beh_tbl.(baseModel)=varNames';
             %neural_beh_tbl.neuralP=pvals';
             neural_beh_tbl.model=models';
+            neural_beh_tbl.dataTbl=dataTbl';
             %neural_beh_tbl(neural_beh_tbl.p>0.05,:)=[];
         end
 
+
+        function neural_beh_tbl=calNeurBehMdlPrePostDiff(baseModel,tbldata,varNames, timepointOrder)
+            % Returns robust fitlm
+            % baseModel | model definition for fitlm, neural data will be appened on 
+            %            ex: basemodel='target ~ var1+' ->  basemodel='target ~ +var1+neural'
+            %            ex: basemodel='target ~ var1*' ->  basemodel='target ~ var1*neural'
+            % tbldata | data for fitlm, can be found after running calSigTbl
+            %           must include all variables in baseModel
+            % varNames | neural data names from tbldata
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Output | table with p values only
+            parts = strsplit(varNames{1},'_');
+            neural_beh_tbl=table();
+            pvals=[];
+
+            time1 = timepointOrder{1};
+            time2 = timepointOrder{2};
+            if ~ismember( time1,unique(tbldata.group))
+                error("specified timepoint 1 doesn't match group labeling")
+            end
+            if ~ismember( time2,unique(tbldata.group))
+                error("specified timepoint 2 doesn't match group labeling")
+            end
+
+            time1Data = tbldata(strcmp(tbldata.group, time1),:);
+            time2Data = tbldata(strcmp(tbldata.group, time2),:);
+
+            alignedData = outerjoin(time1Data, time2Data, ...
+                'Keys', 'subID', ...
+                'LeftVariables', time1Data.Properties.VariableNames, ...
+                'RightVariables', time2Data.Properties.VariableNames, ...
+                'mergekeys', true);
+            
+            isNum = varfun(@isnumeric, time1Data, 'OutputFormat', 'uniform');
+            colNames = time1Data.Properties.VariableNames(isNum);
+            colNames(strcmp(colNames, 'subID')) = []; % remove ID column from loop
+            
+            diffTable = table(alignedData.subID, 'VariableNames', {'subID'});
+            
+            for j = 1:length(colNames)
+                cName = colNames{j};
+                diffTable.(cName) = alignedData.([cName '_time2Data']) - alignedData.([cName '_time1Data']);
+            end
+            diffTable.group = repmat([time2 '-' time1], height(diffTable),1);
+
+
+            for i=1:length(varNames)
+                modelDef =  baseModel+varNames{i};
+
+                neuralVar = varNames{i};
+                Mdlparts = strsplit(char(baseModel),'~');
+                behVar = deblank(Mdlparts{1});
+                keepCols = {'subID', 'group', behVar, neuralVar};
+                smallTbl = diffTable(:,keepCols);
+                model = fitlm(diffTable,modelDef,'RobustOpts','on'); 
+                models{i}=model;
+                neuralidx = find(strcmp(varNames{i},model.CoefficientNames));
+                pvals(i) = model.Coefficients.pValue(neuralidx); % Check here to make sure its always the second
+                dataTbl{i} = smallTbl;
+                
+            end
+            neural_beh_tbl.(baseModel)=varNames';
+            neural_beh_tbl.model=models';
+            neural_beh_tbl.dataTbl=dataTbl';
+
+        end
 
 
         %--------------END OF STATIC METHODS-----------------------%
