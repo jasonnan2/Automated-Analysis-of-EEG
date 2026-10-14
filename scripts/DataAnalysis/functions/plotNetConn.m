@@ -60,13 +60,16 @@ ax.YTickLabel=flipud({netwrk.name}')';
 ax.XTick=[1:length(netwrk)];
 ax.XTickLabel={netwrk.name};
 
-grid on;
+% Turn off default center grid
+grid(ax, 'off');
 ax.Layer = 'top';
-ax.XTick = 0.5 : 1 : size(netConn, 2) + 0.5;
-ax.YTick = 0.5 : 1 : size(netConn, 1) + 0.5;
-ax.GridColor = [0, 0, 0];       % Black lines (use [0.5 0.5 0.5] for gray)
-ax.GridAlpha = 0.3;             % Transparency (0 = invisible, 1 = solid)
-ax.GridLineStyle = '-';         % Solid line style
+
+% Draw custom grid lines precisely on the cell borders (half-integers)
+hold on;
+edges = 0.5 : 1 : (length(netwrk) + 0.5);
+xline(edges, 'Color', [0, 0, 0], 'Alpha', 0.3, 'LineWidth', 1, 'HandleVisibility', 'off');
+yline(edges, 'Color', [0, 0, 0], 'Alpha', 0.3, 'LineWidth', 1, 'HandleVisibility', 'off');
+hold off;
 
 colorbar;
 end
