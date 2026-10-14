@@ -418,10 +418,11 @@ classdef SourceObject < DataAnalysis
                             freq=freq2plot{f};
                             % average in time dimension
 
-                            [rawS1, s1Subs] = obj.getGroupData(group1,property,freq,timeName);
-                            [rawS2, s2Subs] =obj.getGroupData(group2,property,freq,timeName);
-                            s1 = squeeze(nanmean(rawS1, 3));
-                            s2 = squeeze(nanmean(rawS2, 3));
+                            s1=obj.sourceResults.roiData.(group1).(property).(timeName).(freq);
+                            s2=obj.sourceResults.roiData.(group2).(property).(timeName).(freq);
+
+                            [s1Subs] = obj.getGroupSubs(group1,property);
+                            [s2Subs] = obj.getGroupSubs(group2,property);
 
                             pvals(:,f)=obj.calGroupSig(s1,s2,s1Subs, s2Subs, obj.info.experimentalDesign,isnormal); % get 1x n channel of p values
 
