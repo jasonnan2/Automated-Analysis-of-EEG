@@ -30,9 +30,10 @@ addParameter(p, 'LineWidth', 2);
 addParameter(p, 'FontSize', 12);
 
 cn=256;
-bluePart = [linspace(0.4, 1, cn)', linspace(0.7, 1, cn)', ones(cn, 1)];
-redPart  = [ones(cn, 1), linspace(1, 0.3, cn)', linspace(1, 0.3, cn)'];
-defaultCmap = [bluePart; redPart];
+bluePart = [linspace(0.4, 0.9, cn)', linspace(0.4, 0.9, cn)', ones(cn, 1)];
+redPart  = [ones(cn, 1), linspace(0.9, 0.3, cn)', linspace(0.9, 0.3, cn)'];
+defaultCmap = [bluePart;[1,1,1]; redPart];
+% defaultCmap = 'parula';
 addParameter(p, 'Colormap', defaultCmap);
 parse(p, varargin{:});
 opts = p.Results;
@@ -58,5 +59,14 @@ ax.YTick=[1:length(netwrk)];
 ax.YTickLabel=flipud({netwrk.name}')';
 ax.XTick=[1:length(netwrk)];
 ax.XTickLabel={netwrk.name};
+
+grid on;
+ax.Layer = 'top';
+ax.XTick = 0.5 : 1 : size(netConn, 2) + 0.5;
+ax.YTick = 0.5 : 1 : size(netConn, 1) + 0.5;
+ax.GridColor = [0, 0, 0];       % Black lines (use [0.5 0.5 0.5] for gray)
+ax.GridAlpha = 0.3;             % Transparency (0 = invisible, 1 = solid)
+ax.GridLineStyle = '-';         % Solid line style
+
 colorbar;
 end

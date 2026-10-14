@@ -167,7 +167,7 @@ classdef DataAnalysis
             % freq | string of frequency band. if 'all', gets all freq
             % chans | vector of chans to include, if 'all' or empty indicates use all channels
             % timeName | string of timeName
-
+  
             if nargin < 6
                 chans = 'all';
             end
@@ -182,11 +182,21 @@ classdef DataAnalysis
             if isempty(chans) || (ischar(chans) && strcmp(chans, 'all'))
                 chans = 1:size(obj.DATA.(group).(property), 2); % assuming channels are the 2nd dimension
             end
-            s = obj.DATA.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
             allVars = obj.info.variables; 
             currentVarIdx = find(strcmp(property, allVars));
             missingSubs = setdiff(obj.DATA.(group).missingSubs{currentVarIdx}, property);
             includedSubs = setdiff(obj.DATA.(group).subList,missingSubs);
+
+            s = obj.DATA.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
+        end
+        function [includedSubs] = getGroupSubs(obj,group,property)
+            % group | name of the group
+            % property | string of variable
+            allVars = obj.info.variables; 
+            currentVarIdx = find(strcmp(property, allVars));
+            missingSubs = setdiff(obj.DATA.(group).missingSubs{currentVarIdx}, property);
+            includedSubs = setdiff(obj.DATA.(group).subList,missingSubs);
+
         end
         
         function obj=applyFunc(obj,func)
@@ -434,7 +444,6 @@ classdef DataAnalysis
                 if isempty(commonSubs)
                     error('No matching subjects found between s1 and s2.');
                 end
-                aligning=1;
                 if isvector(s1)
                     s1 = s1(idx1);
                     s2 = s2(idx2);

@@ -3,6 +3,7 @@ classdef SourceObject < DataAnalysis
         DATA
         sourceResults
         netConnectivity
+        netData
     end
     methods
         function obj = SourceObject(DATA, info, baselineTime, timeRange,cfg)
@@ -99,7 +100,7 @@ classdef SourceObject < DataAnalysis
                             freq=obj.info.freq_list{f};
                             for comb = unique(combinations)
                                 groupName=obj.info.groupNames{comb};
-                                tempData = obj.sourceResults.netData.(groupName).(property).(timeName).(freq);
+                                tempData = obj.netData.(groupName).(property).(timeName).(freq);
                                 all_data = [all_data reshape(tempData,1,[])];
                             end
                         end
@@ -122,7 +123,7 @@ classdef SourceObject < DataAnalysis
                         
                         for comb = 1:length(groups2plot)
                             group=obj.info.groupNames{groups2plot(comb)};
-                            tempData = obj.sourceResults.netData.(group).(property).(timeName).(freq); % size net x groups
+                            tempData = obj.netData.(group).(property).(timeName).(freq); % size net x groups
                             data(:,comb) = nanmean(tempData,2);
                             sem(:,comb) = std(tempData,[],2)/sqrt(size(tempData,2));
                         end
@@ -138,12 +139,12 @@ classdef SourceObject < DataAnalysis
                         for comb = 1:size(combinations, 1)
                             group1=obj.info.groupNames{combinations(comb, 1)};
                             group2=obj.info.groupNames{combinations(comb, 2)};
-                            s1=obj.sourceResults.netData.(group1).(property).(timeName).(freq);
-                            s2=obj.sourceResults.netData.(group2).(property).(timeName).(freq);
+                            s1=obj.netData.(group1).(property).(timeName).(freq);
+                            s2=obj.netData.(group2).(property).(timeName).(freq);
                             
 
-                            [~, s1Subs] = obj.getGroupData(group1,property,freq,timeName);
-                            [~, s2Subs] =obj.getGroupData(group2,property,freq,timeName);
+                            s1Subs = obj.getGroupSubs(group1,property);
+                            s2Subs = obj.getGroupSubs(group2,property);
 
 
                             pvals(comb,:)=obj.calGroupSig(s1,s2,s1Subs, s2Subs, obj.info.experimentalDesign,isnormal);
@@ -236,7 +237,7 @@ classdef SourceObject < DataAnalysis
         %
         %     Results are saved into:
         %
-        %     - obj.sourceResults.netData.(group).(property).(timeName).(freq)
+        %     - obj.netData.(group).(property).(timeName).(freq)
         %         A matrix of size [Nnetworks x Nsubjects] containing network-averaged
         %         values for each subject, computed by averaging ROI-level data within
         %         each predefined network.
@@ -264,7 +265,7 @@ classdef SourceObject < DataAnalysis
                 end
             end
             obj.info.netwrk = netwrk;
-            disp('-----------Calulating network data and saving in obj.sourceResults.netData-----------')
+            disp('-----------Calulating network data and saving in obj.netData-----------')
 
             timeNames = fieldnames(obj.info.timeIDX);
             N = numel(fieldnames(obj.DATA));
@@ -283,7 +284,7 @@ classdef SourceObject < DataAnalysis
                             for net=1:length(netwrk)
                                 netData(net,:) = nanmean(data(netwrk(net).roi,:),1);
                             end
-                            obj.sourceResults.netData.(group).(property).(timeName).(freq) = netData;
+                            obj.netData.(group).(property).(timeName).(freq) = netData;
                         end
                     end
                 end
@@ -619,8 +620,8 @@ classdef SourceObject < DataAnalysis
                             freq=freq2plot{f};
                             s1 = squeeze(obj.netConnectivity.(group1).(property).(timeName).(freq));
                             s2 = squeeze(obj.netConnectivity.(group2).(property).(timeName).(freq));
-                            [~, s1Subs] = obj.getGroupData(group1,property,freq,timeName);
-                            [~, s2Subs] =obj.getGroupData(group2,property,freq,timeName);
+                            s1Subs = obj.getGroupSubs(group1,property);
+                            s2Subs =obj.getGroupSubs(group2,property);
 
                             pvalsDiff=[]; pvals1=[];pvals2=[];
                             for a=1:size(s1,1)
