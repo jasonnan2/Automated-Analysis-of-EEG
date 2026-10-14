@@ -30,7 +30,7 @@ addParameter(p, 'LineWidth', 2);
 addParameter(p, 'FontSize', 12);
 
 cn=256;
-bluePart = [linspace(0.3, 1, cn)', linspace(0.3, 1, cn)', ones(cn, 1)];
+bluePart = [linspace(0.4, 1, cn)', linspace(0.7, 1, cn)', ones(cn, 1)];
 redPart  = [ones(cn, 1), linspace(1, 0.3, cn)', linspace(1, 0.3, cn)'];
 defaultCmap = [bluePart; redPart];
 addParameter(p, 'Colormap', defaultCmap);
