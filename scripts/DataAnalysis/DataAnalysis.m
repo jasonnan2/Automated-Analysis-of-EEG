@@ -100,7 +100,7 @@ classdef DataAnalysis
                 fieldData(:,:,:,missingidx) = [];
                 % Assign the cleaned field data back to the data structure
                 data.(fieldNames{v}) = fieldData;
-                data.missingSubs{v}=[fieldNames{v} reshape(data.subList(missingidx), 1, [])];
+                data.missingSubs.(fieldNames{v})=[reshape(data.subList(missingidx), 1, [])];
                 %data.subList(missingidx)=[];
             end
         end
@@ -182,9 +182,7 @@ classdef DataAnalysis
             if isempty(chans) || (ischar(chans) && strcmp(chans, 'all'))
                 chans = 1:size(obj.DATA.(group).(property), 2); % assuming channels are the 2nd dimension
             end
-            allVars = obj.info.variables; 
-            currentVarIdx = find(strcmp(property, allVars));
-            missingSubs = setdiff(obj.DATA.(group).missingSubs{currentVarIdx}, property);
+            missingSubs = obj.DATA.(group).missingSubs.(property);
             includedSubs = setdiff(obj.DATA.(group).subList,missingSubs);
 
             s = obj.DATA.(group).(property)(freqIdx,chans,timeIdx(1):timeIdx(2),:);
@@ -192,9 +190,7 @@ classdef DataAnalysis
         function [includedSubs] = getGroupSubs(obj,group,property)
             % group | name of the group
             % property | string of variable
-            allVars = obj.info.variables; 
-            currentVarIdx = find(strcmp(property, allVars));
-            missingSubs = setdiff(obj.DATA.(group).missingSubs{currentVarIdx}, property);
+            missingSubs = obj.DATA.(group).missingSubs.(property);
             includedSubs = setdiff(obj.DATA.(group).subList,missingSubs);
 
         end
@@ -289,7 +285,7 @@ classdef DataAnalysis
                                subdata = [squeeze(nanmean(obj.getGroupData(obj.info.groupNames{n},property,freq,timeName,elecIdxs),3))];
                                data =[data; subdata];
                                subsOrig = obj.DATA.(obj.info.groupNames{n}).subList;
-                               missing = obj.DATA.(obj.info.groupNames{n}).missingSubs{p_idx}(2:end);
+                               missing = obj.DATA.(obj.info.groupNames{n}).missingSubs.(property);
                                subsOrig(ismember(subsOrig,missing))=[];
                                allsubs=[allsubs,reshape(subsOrig, 1, [])];
                                groupname=[groupname repmat(obj.info.groupNames(n),1,length(subdata))];
