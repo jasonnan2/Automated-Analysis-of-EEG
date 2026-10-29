@@ -70,14 +70,14 @@ erp = exp(-((timeVec - 0.25).^2) / (2 * 0.02^2)) .* erpTime;
 Group3(2,19,:,:) = squeeze(Group3(2,19,:,:)) + repmat(erp', 1, nSubj);
 
 % Store generated scalp data into the project structure
-project.scalpData.Group1.NeuralVarName = Group1;
-project.scalpData.Group2.NeuralVarName = Group2;
-project.scalpData.Group3.NeuralVarName = Group3;
+project.electrodeData.Group1.NeuralVarName = Group1;
+project.electrodeData.Group2.NeuralVarName = Group2;
+project.electrodeData.Group3.NeuralVarName = Group3;
 
 % Assign subject IDs
-project.scalpData.Group1.subList = subList;
-project.scalpData.Group2.subList = subList;
-project.scalpData.Group3.subList = subList;
+project.electrodeData.Group1.subList = subList;
+project.electrodeData.Group2.subList = subList;
+project.electrodeData.Group3.subList = subList;
 
 %% Generating sample Source Data
 

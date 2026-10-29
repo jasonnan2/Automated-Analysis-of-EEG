@@ -47,7 +47,7 @@ electrodeObject.plotElectrodeBar(); % plot grouped bar plots after analyze Elect
 % Formatting behavior table for fitlm 
 behTbl=table();
 rng(1234)
-behTbl.Subject=[project.electrodeData.Group1.subList'; project.electrodeData.Group3.subList'; project.electrodeData.Group3.subList'];
+behTbl.Subject=[project.electrodeData.Group1.subList'; project.electrodeData.Group2.subList'; project.electrodeData.Group3.subList'];
 behTbl.behVar1=rand(1,30)';
 behTbl.group = repmat({'Group1';'Group2';'Group3'},10,1);
 electrodeObject = electrodeObject.calSigTbl('sig'); 
