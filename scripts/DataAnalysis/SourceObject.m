@@ -3,6 +3,7 @@ classdef SourceObject < DataAnalysis
         DATA
         sourceResults
         netConnectivity
+        netResults
         netData
     end
     methods
@@ -151,6 +152,7 @@ classdef SourceObject < DataAnalysis
                             if FDRflag
                                 pvals(comb,:)=fdr(pvals(comb,:));
                             end
+                            
 
                             group1Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 1)-1) * groupwidth / (2*nbars);
                             group2Location = (1:ngroups) - groupwidth/2 + (2*combinations(comb, 2)-1) * groupwidth / (2*nbars);
@@ -534,7 +536,7 @@ classdef SourceObject < DataAnalysis
                 end
             end
         end
-        function plotNetConnectivity(obj,varargin)
+        function obj = plotNetConnectivity(obj,varargin)
             %   [...] = analyzeNetConnectivity(...,'PARAM1',VAL1,'PARAM2',VAL2,...)
             %   Plots and anlyzes network connectivity data. Must run calConnectivity()
             %   first. Each dataset will generate 3 plots, group 1, group 2, and
@@ -583,7 +585,6 @@ classdef SourceObject < DataAnalysis
             times2plot  = cfg.times2plot;
             FDRflag = cfg.FDRflag;
             isnormal=cfg.isnormal;
-
             netwrk=obj.info.netwrk;
             
             if strcmp(isnormal,'auto')
@@ -625,9 +626,12 @@ classdef SourceObject < DataAnalysis
                             s2Subs =obj.getGroupSubs(group2,property);
 
                             pvalsDiff=[]; pvals1=[];pvals2=[];
-                            for a=1:size(s1,1)
+                            for a=1:size(s1,1) % Goes through each network
+                                % Pval of difference between groups
                                 pvalsDiff(:,a)=obj.calGroupSig(squeeze(atanh(s1(a,:,:))),squeeze(atanh(s2(a,:,:))),s1Subs, s2Subs, obj.info.experimentalDesign,isnormal);
+                                % Pval of within group1
                                 pvals1(:,a) = obj.calGroupSig(squeeze(atanh(s1(a,:,:))),zeros(size(s1,[2,3])),s1Subs, s1Subs,'paired',isnormal);
+                                % Pval of within group2
                                 pvals2(:,a) = obj.calGroupSig(squeeze(atanh(s2(a,:,:))),zeros(size(s2,[2,3])),s2Subs, s2Subs,'paired',isnormal);
                             end
                             
@@ -636,7 +640,26 @@ classdef SourceObject < DataAnalysis
                                 pvals1 = fdr_matCorrect(pvals1);
                                 pvals2 = fdr_matCorrect(pvals2);
                             end
-            
+                            % Save significance data across groups
+                            upper_mask = triu(true(size(pvalsDiff)), 0);
+                            sig_sparse = sparse(pvalsDiff .* (upper_mask & (pvalsDiff < 0.1)));
+                            [sparseRow, sparseCol, ~] = find(sig_sparse);
+                            nSparse= length(sparseRow);
+                            allTbls = cell(nSparse,1);
+                            for sigConnections =1:nSparse
+                                n1 = sparseRow(sigConnections);
+                                n2 = sparseCol(sigConnections);
+                                g1Vals = squeeze(atanh(s1(n1,n2,:)));
+                                g2Vals = squeeze(atanh(s2(n1,n2,:)));
+                                condition = strjoin({obj.info.netwrk(n1).name, obj.info.netwrk(n2).name},'_');
+                                allTbls{sigConnections} = table([s1Subs, s2Subs]',[repmat({group1}, length(s1Subs),1); repmat({group2}, length(s2Subs), 1)], ...
+                                    [g1Vals;g2Vals], 'VariableNames',{'SubID','Group','netConnectivity'});
+                                allTbls{sigConnections}.condition = repmat({condition}, height(allTbls{sigConnections}), 1);
+                            end
+                            
+                            obj.netResults.(property).(timeName).(freq) = vertcat(allTbls{:});
+
+                            % plot within group 1
                             subplot(length(freq2plot),3,count)
                             plotNetConn(tanh(nanmean(atanh(s1),3)), pvals1,netwrk)
                             
@@ -647,14 +670,15 @@ classdef SourceObject < DataAnalysis
                             end
             
                             ylabel(freq,'fontweight','bold','fontsize',12)
-            
+                            
+                            % plot within group 2
                             subplot(length(freq2plot),3,count)
                             plotNetConn(tanh(nanmean(atanh(s2),3)), pvals2,netwrk)
                             count=count+1;
                             if f==1
                                 title(group2)
                             end
-            
+                            % plot difference between groups
                             subplot(length(freq2plot),3,count)
                             plotNetConn(tanh(nanmean(atanh(s2),3)-nanmean(atanh(s1),3)), pvalsDiff,netwrk)
                             count=count+1;
